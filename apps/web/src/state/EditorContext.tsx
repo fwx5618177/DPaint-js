@@ -11,6 +11,7 @@ import { COMMAND, createEventBus, type EventBus } from "@dpaint/core";
 import type { ColorArray } from "@dpaint/util";
 import { ImageDocument, type DocumentSnapshot } from "../model/ImageDocument";
 import { History } from "../model/History";
+import { serializeToString, deserializeFromString } from "../model/serialization";
 import type { ToolId } from "../model/tools";
 
 export interface EditorApi {
@@ -41,6 +42,11 @@ export interface EditorApi {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+
+  /** Serialize the current document to a JSON project string. */
+  serialize: () => string;
+  /** Replace the document with one parsed from a JSON project string. */
+  loadProject: (json: string) => void;
 }
 
 const EditorContext = createContext<EditorApi | null>(null);
@@ -94,6 +100,17 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     [commit],
   );
 
+  const serialize = useCallback(() => serializeToString(docRef.current), []);
+
+  const loadProject = useCallback(
+    (json: string) => {
+      docRef.current = deserializeFromString(json);
+      historyRef.current.reset(docRef.current.snapshot());
+      commit();
+    },
+    [commit],
+  );
+
   const swapColors = useCallback(() => {
     setColor(bgColor);
     setBgColor(color);
@@ -120,8 +137,24 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       redo,
       canUndo: historyRef.current.canUndo,
       canRedo: historyRef.current.canRedo,
+      serialize,
+      loadProject,
     }),
-    [version, tool, color, bgColor, zoom, commit, newImage, swapColors, checkpoint, undo, redo],
+    [
+      version,
+      tool,
+      color,
+      bgColor,
+      zoom,
+      commit,
+      newImage,
+      swapColors,
+      checkpoint,
+      undo,
+      redo,
+      serialize,
+      loadProject,
+    ],
   );
 
   // Bridge legacy COMMAND events to the React API so the menu/bus can drive the

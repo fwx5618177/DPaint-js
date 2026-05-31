@@ -1,15 +1,58 @@
+import { useRef } from "react";
 import { COMMAND } from "@dpaint/core";
 import { useEditor } from "../state/EditorContext";
 
 /** Top menu bar wired to the legacy COMMAND event bus. */
 export function MenuBar() {
-  const { bus, newImage, zoom, setZoom, canUndo, canRedo } = useEditor();
+  const { bus, newImage, zoom, setZoom, canUndo, canRedo, serialize, loadProject } = useEditor();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSave = () => {
+    const blob = new Blob([serialize()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "untitled.dpaint.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleLoadFile = async (file: File) => {
+    try {
+      loadProject(await file.text());
+    } catch (err) {
+      console.error("Failed to load project", err);
+    }
+  };
+
   return (
     <div className="menubar" role="menubar" data-testid="menubar">
       <span className="brand">DPaint.js</span>
       <button type="button" data-testid="menu-new" onClick={() => newImage(64, 48)}>
         New
       </button>
+      <button type="button" data-testid="menu-save" onClick={handleSave}>
+        Save
+      </button>
+      <button
+        type="button"
+        data-testid="menu-load"
+        onClick={() => fileInputRef.current?.click()}
+      >
+        Load
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        data-testid="file-input"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleLoadFile(file);
+          e.target.value = "";
+        }}
+      />
       <button
         type="button"
         data-testid="menu-clear"

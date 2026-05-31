@@ -11,6 +11,19 @@ Element.prototype.setPointerCapture = () => {};
 Element.prototype.releasePointerCapture = () => {};
 Element.prototype.hasPointerCapture = () => false;
 
+// jsdom's Blob/File do not implement async text(); polyfill via FileReader so
+// save/load flows work in tests (real browsers provide this natively).
+if (!Blob.prototype.text) {
+  Blob.prototype.text = function (this: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(this);
+    });
+  };
+}
+
 // jsdom does not implement PointerEvent. Without it, dispatched pointer events
 // drop clientX/clientY. Polyfill it as a MouseEvent subclass so coordinate data
 // flows through to the React handlers.

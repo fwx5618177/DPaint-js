@@ -70,6 +70,12 @@ export function CanvasView() {
             doc.drawRect(rx, ry, rw, rh, color, tool === "fillrect");
           }
           break;
+        case "ellipse":
+        case "fillellipse":
+          if (!preview) {
+            doc.drawEllipse(drag.startX, drag.startY, x, y, color, tool === "fillellipse");
+          }
+          break;
         case "fill":
           if (!preview) doc.floodFill(x, y, color);
           break;
@@ -125,7 +131,13 @@ export function CanvasView() {
       const drag = dragRef.current;
       if (!drag) return;
       const { x, y } = toDocCoords(e);
-      if (tool === "line" || tool === "rect" || tool === "fillrect") {
+      if (
+        tool === "line" ||
+        tool === "rect" ||
+        tool === "fillrect" ||
+        tool === "ellipse" ||
+        tool === "fillellipse"
+      ) {
         applyStroke(x, y, drag, false);
         commit();
       }

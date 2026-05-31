@@ -41,6 +41,15 @@ describe("Tool selection", () => {
     expect(screen.getByTestId("tool-line")).toHaveAttribute("aria-pressed", "true");
     await user.keyboard("r");
     expect(screen.getByTestId("tool-rect")).toHaveAttribute("aria-pressed", "true");
+    await user.keyboard("e");
+    expect(screen.getByTestId("tool-ellipse")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("exposes the full tool set including ellipse tools", () => {
+    setup();
+    expect(within(screen.getByTestId("toolbar")).getAllByRole("button")).toHaveLength(8);
+    expect(screen.getByTestId("tool-ellipse")).toBeInTheDocument();
+    expect(screen.getByTestId("tool-fillellipse")).toBeInTheDocument();
   });
 });
 

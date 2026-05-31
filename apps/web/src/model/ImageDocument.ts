@@ -177,6 +177,86 @@ export class ImageDocument {
     this.drawLine(x1, y, x1, y1, color, layer);
   }
 
+  /**
+   * Draw an axis-aligned ellipse inscribed in the rectangle spanning the two
+   * corners (inclusive). Uses the midpoint ellipse algorithm; `fill` draws solid
+   * horizontal spans. A zero-size box degenerates to a single pixel.
+   */
+  drawEllipse(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    color: ColorArray,
+    fill = false,
+    layer: Layer = this.activeLayer,
+  ): void {
+    const left = Math.min(x0, x1);
+    const right = Math.max(x0, x1);
+    const top = Math.min(y0, y1);
+    const bottom = Math.max(y0, y1);
+    const cx = (left + right) / 2;
+    const cy = (top + bottom) / 2;
+    const a = (right - left) / 2;
+    const b = (bottom - top) / 2;
+    if (a === 0 && b === 0) {
+      this.setPixel(Math.round(cx), Math.round(cy), color, layer);
+      return;
+    }
+
+    const plot = (px: number, py: number) => this.setPixel(Math.round(px), Math.round(py), color, layer);
+    const span = (px0: number, px1: number, py: number) =>
+      this.drawLine(Math.round(px0), Math.round(py), Math.round(px1), Math.round(py), color, layer);
+
+    const a2 = a * a;
+    const b2 = b * b;
+    let x = 0;
+    let y = b;
+    let dx = 0;
+    let dy = 2 * a2 * y;
+    let err = Math.round(b2 - a2 * b + 0.25 * a2);
+
+    const emit = (ex: number, ey: number) => {
+      if (fill) {
+        span(cx - ex, cx + ex, cy + ey);
+        span(cx - ex, cx + ex, cy - ey);
+      } else {
+        plot(cx + ex, cy + ey);
+        plot(cx - ex, cy + ey);
+        plot(cx + ex, cy - ey);
+        plot(cx - ex, cy - ey);
+      }
+    };
+
+    // Region 1
+    while (dx < dy) {
+      emit(x, y);
+      x++;
+      dx += 2 * b2;
+      if (err < 0) {
+        err += b2 + dx;
+      } else {
+        y--;
+        dy -= 2 * a2;
+        err += b2 + dx - dy;
+      }
+    }
+    // Region 2
+    err = Math.round(b2 * (x + 0.5) * (x + 0.5) + a2 * (y - 1) * (y - 1) - a2 * b2);
+    while (y >= 0) {
+      emit(x, y);
+      y--;
+      dy -= 2 * a2;
+      if (err > 0) {
+        err += a2 - dy;
+      } else {
+        x++;
+        dx += 2 * b2;
+        err += a2 - dy + dx;
+      }
+    }
+  }
+
   /** Deep-copy the full editable state so it can be restored later (undo/redo). */
   snapshot(): DocumentSnapshot {
     return {

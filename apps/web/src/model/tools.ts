@@ -1,4 +1,12 @@
-export type ToolId = "pencil" | "line" | "rect" | "fillrect" | "fill" | "picker";
+export type ToolId =
+  | "pencil"
+  | "line"
+  | "rect"
+  | "fillrect"
+  | "ellipse"
+  | "fillellipse"
+  | "fill"
+  | "picker";
 
 export interface ToolDef {
   id: ToolId;
@@ -15,6 +23,8 @@ export const TOOLS: ToolDef[] = [
   { id: "line", label: "Line", glyph: "📏", shortcut: "l", hint: "Straight line" },
   { id: "rect", label: "Rectangle", glyph: "▭", shortcut: "r", hint: "Rectangle outline" },
   { id: "fillrect", label: "Filled box", glyph: "▬", shortcut: "b", hint: "Filled rectangle" },
+  { id: "ellipse", label: "Ellipse", glyph: "◯", shortcut: "e", hint: "Ellipse outline" },
+  { id: "fillellipse", label: "Filled ellipse", glyph: "⬤", shortcut: "o", hint: "Filled ellipse" },
   { id: "fill", label: "Fill", glyph: "🪣", shortcut: "f", hint: "Flood fill" },
   { id: "picker", label: "Picker", glyph: "💧", shortcut: "k", hint: "Pick colour" },
 ];

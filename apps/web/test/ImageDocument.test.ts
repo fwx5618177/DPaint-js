@@ -82,6 +82,44 @@ describe("ImageDocument drawRect", () => {
   });
 });
 
+describe("ImageDocument drawEllipse", () => {
+  it("draws a single pixel for a zero-size box", () => {
+    const doc = newDoc(8, 8);
+    doc.drawEllipse(4, 4, 4, 4, [3, 3, 3]);
+    expect(doc.getPixel(4, 4)).toEqual([3, 3, 3, 255]);
+  });
+
+  it("draws an outline that touches the bounding-box extremes", () => {
+    const doc = newDoc(9, 9);
+    doc.drawEllipse(1, 1, 7, 7, [5, 5, 5]); // circle centred at (4,4)
+    // top, bottom, left, right midpoints lie on the ellipse
+    expect(doc.getPixel(4, 1)).toEqual([5, 5, 5, 255]);
+    expect(doc.getPixel(4, 7)).toEqual([5, 5, 5, 255]);
+    expect(doc.getPixel(1, 4)).toEqual([5, 5, 5, 255]);
+    expect(doc.getPixel(7, 4)).toEqual([5, 5, 5, 255]);
+  });
+
+  it("leaves the centre empty for an outline", () => {
+    const doc = newDoc(9, 9);
+    doc.drawEllipse(1, 1, 7, 7, [5, 5, 5]);
+    expect(doc.getPixel(4, 4)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("fills the interior when fill is set", () => {
+    const doc = newDoc(9, 9);
+    doc.drawEllipse(1, 1, 7, 7, [6, 6, 6], true);
+    expect(doc.getPixel(4, 4)).toEqual([6, 6, 6, 255]); // centre filled
+    expect(doc.getPixel(4, 1)).toEqual([6, 6, 6, 255]); // edge filled
+    expect(doc.getPixel(0, 0)).toEqual([0, 0, 0, 0]); // corner outside ellipse
+  });
+
+  it("accepts corners in any order", () => {
+    const doc = newDoc(9, 9);
+    doc.drawEllipse(7, 7, 1, 1, [8, 8, 8]);
+    expect(doc.getPixel(4, 1)).toEqual([8, 8, 8, 255]);
+  });
+});
+
 describe("ImageDocument floodFill", () => {
   it("fills a contiguous region", () => {
     const doc = newDoc(4, 4);

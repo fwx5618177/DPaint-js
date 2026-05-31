@@ -41,17 +41,43 @@ All processing is done in your browser, no data is sent to any server.
 The only part that is not included in this repository is the Amiga Emulator Files.
 (The emulator is based on the [Scripted Amiga Emulator](https://github.com/naTmeg/ScriptedAmigaEmulator))
 
-## Building
-DPaint.js doesn't need building.  
-It also has zero dependencies so there's no need to install anything.  
-DPaint.js is written using ES6 modules and runs out of the box in modern browsers.  
-Just serve "index.html" from a webserver and you're good to go.  
+## Architecture (TypeScript + React monorepo)
+The project is being migrated to a TypeScript + React **pnpm monorepo**. The
+framework-agnostic logic lives in reusable `packages/*`, and the editor UI lives
+in `apps/web` as a React + Vite application.
 
-There's an optional build step to create a compact version of DPaint.js if you like.  
-I'm using [Vite](https://vitejs.dev/) for this.  
-For convenience, I've included a "package.json" file.  
-open a terminal and run `npm install` to install Vite and its dependencies.
-Then run `npm run build` to create a compact version of DPaint.js in the "dist" folder.
+```
+.
+├── packages/
+│   ├── core/         @dpaint/core — commands/events enums, typed EventBus, user settings
+│   ├── util/         @dpaint/util — colour maths, CRC32, BinaryStream, text helpers
+│   └── fileformats/  @dpaint/fileformats — ByteRun1/PackBits codec + format detection
+├── apps/
+│   └── web/          @dpaint/web — React + TypeScript paint application (Vite)
+└── _script/          legacy plain-JS source (being ported package by package)
+```
+
+### Prerequisites
+- Node.js ≥ 20
+- [pnpm](https://pnpm.io/) 9 (`corepack enable` will provide it)
+
+### Common commands (run from the repo root)
+| Command | Description |
+| --- | --- |
+| `pnpm install` | Install all workspace dependencies |
+| `pnpm dev` | Start the React app (`apps/web`) in dev mode |
+| `pnpm test` | Run the whole Vitest suite across every package |
+| `pnpm typecheck` | Type-check every package and the app |
+| `pnpm build` | Type-check the packages and build the web app to `apps/web/dist` |
+| `pnpm coverage` | Run the suite with V8 coverage |
+
+Tests are written with [Vitest](https://vitest.dev/) (plus
+[Testing Library](https://testing-library.com/) for the React components).
+
+### Legacy build
+The original zero-dependency ES6 app still lives at the repo root and can be
+served directly (`index.html`) or built with `pnpm legacy:build`. It needs no
+install step and runs out of the box in modern browsers.
 
 ## Documentation
 Documentation can be found at https://dpaint.app/docs/

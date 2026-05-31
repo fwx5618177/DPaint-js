@@ -1,0 +1,28 @@
+export type ToolId = "pencil" | "line" | "rect" | "fillrect" | "fill" | "picker";
+
+export interface ToolDef {
+  id: ToolId;
+  label: string;
+  /** glyph shown in the toolbar button */
+  glyph: string;
+  /** keyboard shortcut (single key) */
+  shortcut: string;
+  hint: string;
+}
+
+export const TOOLS: ToolDef[] = [
+  { id: "pencil", label: "Pencil", glyph: "✏️", shortcut: "p", hint: "Freehand draw" },
+  { id: "line", label: "Line", glyph: "📏", shortcut: "l", hint: "Straight line" },
+  { id: "rect", label: "Rectangle", glyph: "▭", shortcut: "r", hint: "Rectangle outline" },
+  { id: "fillrect", label: "Filled box", glyph: "▬", shortcut: "b", hint: "Filled rectangle" },
+  { id: "fill", label: "Fill", glyph: "🪣", shortcut: "f", hint: "Flood fill" },
+  { id: "picker", label: "Picker", glyph: "💧", shortcut: "k", hint: "Pick colour" },
+];
+
+export const TOOLS_BY_ID: Record<ToolId, ToolDef> = Object.fromEntries(
+  TOOLS.map((t) => [t.id, t]),
+) as Record<ToolId, ToolDef>;
+
+export const TOOL_BY_SHORTCUT: Record<string, ToolId> = Object.fromEntries(
+  TOOLS.map((t) => [t.shortcut, t.id]),
+);

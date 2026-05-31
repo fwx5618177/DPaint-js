@@ -1,0 +1,21 @@
+{
+  "name": "@dpaint/fileformats",
+  "version": "0.3.0",
+  "description": "Image file-format helpers for DPaint.js: ByteRun1/PackBits codec and format detection.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dpaint/util": "workspace:*"
+  }
+}

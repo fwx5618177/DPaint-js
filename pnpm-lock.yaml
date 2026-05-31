@@ -60,6 +60,12 @@ importers:
 
   packages/core: {}
 
+  packages/fileformats:
+    dependencies:
+      '@dpaint/util':
+        specifier: workspace:*
+        version: link:../util
+
   packages/util: {}
 
 packages:

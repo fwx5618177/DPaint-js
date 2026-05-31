@@ -12,7 +12,7 @@ interface DragState {
 /** Renders the composited document into a canvas and routes pointer input to tools. */
 export function CanvasView() {
   const editor = useEditor();
-  const { doc, zoom, tool, color, version, commit, bus } = editor;
+  const { doc, zoom, tool, color, version, commit, checkpoint, bus } = editor;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
@@ -130,8 +130,10 @@ export function CanvasView() {
         commit();
       }
       dragRef.current = null;
+      // The picker does not mutate pixels, so it does not create an undo step.
+      if (tool !== "picker") checkpoint();
     },
-    [toDocCoords, tool, applyStroke, commit],
+    [toDocCoords, tool, applyStroke, commit, checkpoint],
   );
 
   return (

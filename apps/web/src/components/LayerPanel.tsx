@@ -2,7 +2,7 @@ import { useEditor } from "../state/EditorContext";
 
 /** Layer list with visibility toggles and add/remove. */
 export function LayerPanel() {
-  const { doc, commit } = useEditor();
+  const { doc, commit, checkpoint } = useEditor();
   return (
     <div className="layer-panel" data-testid="layer-panel">
       <div className="layer-panel-header">Layers</div>
@@ -47,7 +47,7 @@ export function LayerPanel() {
                 disabled={doc.layers.length <= 1}
                 onClick={() => {
                   doc.removeLayer(index);
-                  commit();
+                  checkpoint();
                 }}
               >
                 ✕
@@ -61,7 +61,7 @@ export function LayerPanel() {
         data-testid="layer-add"
         onClick={() => {
           doc.addLayer();
-          commit();
+          checkpoint();
         }}
       >
         + Add layer

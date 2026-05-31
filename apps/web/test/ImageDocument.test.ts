@@ -140,6 +140,43 @@ describe("ImageDocument layers", () => {
   });
 });
 
+describe("ImageDocument snapshot / restore", () => {
+  it("restores pixel data after further edits", () => {
+    const doc = newDoc(4, 4);
+    doc.setPixel(1, 1, [7, 8, 9]);
+    const snap = doc.snapshot();
+    doc.setPixel(1, 1, [100, 100, 100]);
+    doc.restore(snap);
+    expect(doc.getPixel(1, 1)).toEqual([7, 8, 9, 255]);
+  });
+
+  it("snapshot is a deep copy (independent of later mutations)", () => {
+    const doc = newDoc(2, 2);
+    const snap = doc.snapshot();
+    doc.setPixel(0, 0, [1, 2, 3]);
+    // mutating the doc must not change the captured snapshot
+    expect(snap.layers[0]!.data[0]).toBe(0);
+  });
+
+  it("restores layer structure", () => {
+    const doc = newDoc(2, 2);
+    const snap = doc.snapshot();
+    doc.addLayer();
+    doc.addLayer();
+    expect(doc.layers).toHaveLength(3);
+    doc.restore(snap);
+    expect(doc.layers).toHaveLength(1);
+    expect(doc.activeLayerIndex).toBe(0);
+  });
+
+  it("throws when restoring a mismatched size", () => {
+    const doc = newDoc(2, 2);
+    const snap = doc.snapshot();
+    const other = newDoc(4, 4);
+    expect(() => other.restore(snap)).toThrow();
+  });
+});
+
 describe("ImageDocument composite & colorCount", () => {
   it("composites an opaque upper layer over a lower one", () => {
     const doc = newDoc(2, 2);

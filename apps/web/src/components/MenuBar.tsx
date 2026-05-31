@@ -3,7 +3,7 @@ import { useEditor } from "../state/EditorContext";
 
 /** Top menu bar wired to the legacy COMMAND event bus. */
 export function MenuBar() {
-  const { bus, newImage, zoom, setZoom } = useEditor();
+  const { bus, newImage, zoom, setZoom, canUndo, canRedo } = useEditor();
   return (
     <div className="menubar" role="menubar" data-testid="menubar">
       <span className="brand">DPaint.js</span>
@@ -23,6 +23,22 @@ export function MenuBar() {
         onClick={() => bus.trigger(COMMAND.NEWLAYER)}
       >
         Add layer
+      </button>
+      <button
+        type="button"
+        data-testid="menu-undo"
+        disabled={!canUndo}
+        onClick={() => bus.trigger(COMMAND.UNDO)}
+      >
+        Undo
+      </button>
+      <button
+        type="button"
+        data-testid="menu-redo"
+        disabled={!canRedo}
+        onClick={() => bus.trigger(COMMAND.REDO)}
+      >
+        Redo
       </button>
       <span className="spacer" />
       <button

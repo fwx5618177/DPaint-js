@@ -11,6 +11,20 @@ export function useKeyboardShortcuts() {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
       const key = e.key.toLowerCase();
+
+      // Undo / redo (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z or Ctrl+Y)
+      if ((e.ctrlKey || e.metaKey) && key === "z") {
+        e.preventDefault();
+        bus.trigger(e.shiftKey ? COMMAND.REDO : COMMAND.UNDO);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && key === "y") {
+        e.preventDefault();
+        bus.trigger(COMMAND.REDO);
+        return;
+      }
+      if (e.ctrlKey || e.metaKey) return;
+
       const toolId = TOOL_BY_SHORTCUT[key];
       if (toolId) {
         setTool(toolId);

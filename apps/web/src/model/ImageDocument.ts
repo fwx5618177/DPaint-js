@@ -17,6 +17,20 @@ export interface ImageDocumentOptions {
   palette?: ColorArray[];
 }
 
+/** Immutable, deep-copied capture of an {@link ImageDocument}'s editable state. */
+export interface DocumentSnapshot {
+  width: number;
+  height: number;
+  activeLayerIndex: number;
+  palette: ColorArray[];
+  layers: Array<{
+    name: string;
+    visible: boolean;
+    opacity: number;
+    data: Uint8ClampedArray;
+  }>;
+}
+
 /**
  * A minimal but genuinely functional raster image model: layers of RGBA pixel
  * buffers plus drawing primitives (pencil, line, rectangle, flood fill). It is
@@ -161,6 +175,37 @@ export class ImageDocument {
     this.drawLine(x, y1, x1, y1, color, layer);
     this.drawLine(x, y, x, y1, color, layer);
     this.drawLine(x1, y, x1, y1, color, layer);
+  }
+
+  /** Deep-copy the full editable state so it can be restored later (undo/redo). */
+  snapshot(): DocumentSnapshot {
+    return {
+      width: this.width,
+      height: this.height,
+      activeLayerIndex: this.activeLayerIndex,
+      palette: this.palette.map((c) => c.slice()),
+      layers: this.layers.map((l) => ({
+        name: l.name,
+        visible: l.visible,
+        opacity: l.opacity,
+        data: new Uint8ClampedArray(l.data),
+      })),
+    };
+  }
+
+  /** Restore state previously captured with {@link snapshot}. */
+  restore(snapshot: DocumentSnapshot): void {
+    if (snapshot.width !== this.width || snapshot.height !== this.height) {
+      throw new Error("Cannot restore a snapshot with different dimensions");
+    }
+    this.palette = snapshot.palette.map((c) => c.slice());
+    this.layers = snapshot.layers.map((l) => ({
+      name: l.name,
+      visible: l.visible,
+      opacity: l.opacity,
+      data: new Uint8ClampedArray(l.data),
+    }));
+    this.activeLayerIndex = Math.min(snapshot.activeLayerIndex, this.layers.length - 1);
   }
 
   /** 4-way scanline flood fill. */

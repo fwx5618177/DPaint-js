@@ -9,7 +9,8 @@ import {
 } from "react";
 import { COMMAND, createEventBus, type EventBus } from "@dpaint/core";
 import type { ColorArray } from "@dpaint/util";
-import { ImageDocument } from "../model/ImageDocument";
+import { ImageDocument, type DocumentSnapshot } from "../model/ImageDocument";
+import { History } from "../model/History";
 import type { ToolId } from "../model/tools";
 
 export interface EditorApi {
@@ -33,6 +34,13 @@ export interface EditorApi {
   commit: () => void;
   newImage: (width: number, height: number) => void;
   swapColors: () => void;
+
+  /** Record the current document state as an undo checkpoint. */
+  checkpoint: () => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 const EditorContext = createContext<EditorApi | null>(null);
@@ -51,12 +59,36 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
   const [bgColor, setBgColor] = useState<ColorArray>([0, 0, 0]);
   const [zoom, setZoom] = useState(8);
   const busRef = useRef<EventBus>(createEventBus());
+  const historyRef = useRef<History<DocumentSnapshot>>(new History<DocumentSnapshot>(50));
+  if (historyRef.current.size === 0) historyRef.current.reset(docRef.current.snapshot());
 
   const commit = useCallback(() => setVersion((v) => v + 1), []);
+
+  const checkpoint = useCallback(() => {
+    historyRef.current.push(docRef.current.snapshot());
+    setVersion((v) => v + 1);
+  }, []);
+
+  const undo = useCallback(() => {
+    const snap = historyRef.current.undo();
+    if (snap) {
+      docRef.current.restore(snap);
+      setVersion((v) => v + 1);
+    }
+  }, []);
+
+  const redo = useCallback(() => {
+    const snap = historyRef.current.redo();
+    if (snap) {
+      docRef.current.restore(snap);
+      setVersion((v) => v + 1);
+    }
+  }, []);
 
   const newImage = useCallback(
     (w: number, h: number) => {
       docRef.current = new ImageDocument({ width: w, height: h });
+      historyRef.current.reset(docRef.current.snapshot());
       commit();
     },
     [commit],
@@ -83,8 +115,13 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       commit,
       newImage,
       swapColors,
+      checkpoint,
+      undo,
+      redo,
+      canUndo: historyRef.current.canUndo,
+      canRedo: historyRef.current.canRedo,
     }),
-    [version, tool, color, bgColor, zoom, commit, newImage, swapColors],
+    [version, tool, color, bgColor, zoom, commit, newImage, swapColors, checkpoint, undo, redo],
   );
 
   // Bridge legacy COMMAND events to the React API so the menu/bus can drive the
@@ -96,14 +133,16 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     const bus = busRef.current;
     bus.on(COMMAND.CLEAR, () => {
       docRef.current.clear();
-      commit();
+      checkpoint();
     });
     bus.on(COMMAND.ZOOMIN, () => setZoom((z) => Math.min(z + 1, 32)));
     bus.on(COMMAND.ZOOMOUT, () => setZoom((z) => Math.max(z - 1, 1)));
     bus.on(COMMAND.NEWLAYER, () => {
       docRef.current.addLayer();
-      commit();
+      checkpoint();
     });
+    bus.on(COMMAND.UNDO, () => undo());
+    bus.on(COMMAND.REDO, () => redo());
   }
 
   return <EditorContext.Provider value={api}>{children}</EditorContext.Provider>;

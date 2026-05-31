@@ -22,9 +22,16 @@ export type FileFormat =
 
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 
-function toBytes(data: ArrayBuffer | Uint8Array | ArrayLike<number>): Uint8Array {
+export type DetectInput = ArrayBufferLike | Uint8Array | ArrayLike<number>;
+
+function toBytes(data: DetectInput): Uint8Array {
   if (data instanceof Uint8Array) return data;
-  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  if (
+    data instanceof ArrayBuffer ||
+    (typeof SharedArrayBuffer !== "undefined" && data instanceof SharedArrayBuffer)
+  ) {
+    return new Uint8Array(data);
+  }
   return Uint8Array.from(data as ArrayLike<number>);
 }
 
@@ -55,10 +62,7 @@ function extensionOf(name: string): string {
  * Detect the image format of `data`. `name` (optional) supplies the file name
  * so the extension-keyed Atari/Amiga formats can be recognised.
  */
-export function detectFormat(
-  data: ArrayBuffer | Uint8Array | ArrayLike<number>,
-  name = "",
-): FileFormat {
+export function detectFormat(data: DetectInput, name = ""): FileFormat {
   const bytes = toBytes(data);
   const ext = extensionOf(name);
 

@@ -1,21 +1,31 @@
 {
-    "name": "DPaintJS",
-    "version": "0.2.0",
-    "description": "Webbased image editor with a focus on retro Amiga file formats in plain JavaScript",
-    "repository": "https://github.com/steffest/dpaint-js",
-    "author": "Steffest",
-    "license": "MIT",
-    "scripts": {
-        "clean": "rm -rf dist && rm -rf .parcel-cache",
-        "cleanwin": "del /q .\\.parcel-cache\\* && del /q .\\dist\\*",
-        "build": "vite build --base=./",
-        "start": "npx http-server",
-        "test": "playwright test --config ./tests/playwright.config.js"
-    },
-    "source": "index.html",
-    "devDependencies": {
-        "@playwright/test": "^1.58.2",
-        "playwright": "^1.58.2",
-        "vite": "^7.3.1"
-    }
+  "name": "dpaint-monorepo",
+  "version": "0.3.0",
+  "private": true,
+  "description": "DPaint.js — TypeScript + React monorepo. Webbased retro image editor with Amiga file-format focus.",
+  "repository": "https://github.com/steffest/dpaint-js",
+  "author": "Steffest",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@9.9.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter \"./packages/*\" build && pnpm --filter @dpaint/web build",
+    "dev": "pnpm --filter @dpaint/web dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "legacy:build": "vite build --base=./ --config vite.legacy.config.js",
+    "legacy:start": "npx http-server",
+    "legacy:test": "playwright test --config ./tests/playwright.config.js"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.9"
+  }
 }

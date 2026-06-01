@@ -166,6 +166,15 @@ export interface EditorApi {
   cutSelection: () => void;
   paste: () => void;
 
+  /** Overlays + palette editing. */
+  showGrid: boolean;
+  toggleGrid: () => void;
+  showRulers: boolean;
+  toggleRulers: () => void;
+  setPaletteColor: (index: number, color: ColorArray) => void;
+  addPaletteColor: (color: ColorArray) => void;
+  removePaletteColor: (index: number) => void;
+
   /** Image transforms (all layers) and layer effects, each an undo checkpoint. */
   flipHorizontal: () => void;
   flipVertical: () => void;
@@ -205,6 +214,8 @@ export function EditorProvider({ width = 64, height = 48, autoRestore = false, c
   const [bgColor, setBgColor] = useState<ColorArray>([0, 0, 0]);
   const [zoom, setZoom] = useState(8);
   const [colorCycleActive, setColorCycleActive] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
+  const [showRulers, setShowRulers] = useState(false);
   const [hasClipboard, setHasClipboard] = useState(false);
   const clipboardRef = useRef<PixelRegion | null>(null);
   const cycleRef = useRef<{
@@ -322,6 +333,39 @@ export function EditorProvider({ width = 64, height = 48, autoRestore = false, c
     docRef.current.grayscale();
     checkpoint();
   }, [checkpoint]);
+
+  const toggleGrid = useCallback(() => setShowGrid((v) => !v), []);
+  const toggleRulers = useCallback(() => setShowRulers((v) => !v), []);
+
+  const setPaletteColor = useCallback(
+    (index: number, color: ColorArray) => {
+      const doc = docRef.current;
+      if (index >= 0 && index < doc.palette.length) {
+        doc.palette[index] = [color[0]!, color[1]!, color[2]!];
+        commit();
+      }
+    },
+    [commit],
+  );
+
+  const addPaletteColor = useCallback(
+    (color: ColorArray) => {
+      docRef.current.palette.push([color[0]!, color[1]!, color[2]!]);
+      commit();
+    },
+    [commit],
+  );
+
+  const removePaletteColor = useCallback(
+    (index: number) => {
+      const doc = docRef.current;
+      if (doc.palette.length > 1 && index >= 0 && index < doc.palette.length) {
+        doc.palette.splice(index, 1);
+        commit();
+      }
+    },
+    [commit],
+  );
 
   const resize = useCallback(
     (w: number, h: number) => {
@@ -776,6 +820,13 @@ export function EditorProvider({ width = 64, height = 48, autoRestore = false, c
       flipVertical,
       invert,
       grayscale,
+      showGrid,
+      toggleGrid,
+      showRulers,
+      toggleRulers,
+      setPaletteColor,
+      addPaletteColor,
+      removePaletteColor,
       restoreAutosave,
       recording,
       recordedFrameCount,
@@ -838,6 +889,13 @@ export function EditorProvider({ width = 64, height = 48, autoRestore = false, c
       flipVertical,
       invert,
       grayscale,
+      showGrid,
+      toggleGrid,
+      showRulers,
+      toggleRulers,
+      setPaletteColor,
+      addPaletteColor,
+      removePaletteColor,
       restoreAutosave,
       recording,
       recordedFrameCount,
@@ -868,6 +926,9 @@ export function EditorProvider({ width = 64, height = 48, autoRestore = false, c
     bus.on(COMMAND.FLIPHORIZONTAL, () => flipHorizontal());
     bus.on(COMMAND.FLIPVERTICAL, () => flipVertical());
     bus.on(COMMAND.PALETTEFROMIMAGE, () => paletteFromImage());
+    bus.on(COMMAND.TOGGLEGRID, () => toggleGrid());
+    bus.on(COMMAND.TOGGLEPIXELGRID, () => toggleGrid());
+    bus.on(COMMAND.TOGGLERULERS, () => toggleRulers());
     bus.on(COMMAND.CYCLEPALETTE, () => toggleColorCycle());
     bus.on(COMMAND.SELECTALL, () => selectAll());
     bus.on(COMMAND.CLEARSELECTION, () => deselect());

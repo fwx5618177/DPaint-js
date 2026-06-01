@@ -13,7 +13,8 @@ interface DragState {
 /** Renders the composited document into a canvas and routes pointer input to tools. */
 export function CanvasView() {
   const editor = useEditor();
-  const { doc, zoom, tool, color, bgColor, version, commit, checkpoint, bus } = editor;
+  const { doc, zoom, tool, color, bgColor, version, commit, checkpoint, bus, showGrid, showRulers } =
+    editor;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
@@ -47,7 +48,44 @@ export function CanvasView() {
       ctx.strokeRect(sel.x * zoom + 0.5, sel.y * zoom + 0.5, sel.width * zoom, sel.height * zoom);
       ctx.restore();
     }
-  }, [doc, zoom]);
+
+    // pixel grid overlay
+    if (showGrid && zoom >= 4) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(128,128,128,0.4)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = 0; x <= doc.width; x++) {
+        ctx.moveTo(x * zoom + 0.5, 0);
+        ctx.lineTo(x * zoom + 0.5, doc.height * zoom);
+      }
+      for (let y = 0; y <= doc.height; y++) {
+        ctx.moveTo(0, y * zoom + 0.5);
+        ctx.lineTo(doc.width * zoom, y * zoom + 0.5);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ruler tick marks along the top and left edges
+    if (showRulers) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(74,144,217,0.8)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const step = 8;
+      for (let x = 0; x <= doc.width; x += step) {
+        ctx.moveTo(x * zoom + 0.5, 0);
+        ctx.lineTo(x * zoom + 0.5, 6);
+      }
+      for (let y = 0; y <= doc.height; y += step) {
+        ctx.moveTo(0, y * zoom + 0.5);
+        ctx.lineTo(6, y * zoom + 0.5);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  }, [doc, zoom, showGrid, showRulers]);
 
   useEffect(() => {
     paint();

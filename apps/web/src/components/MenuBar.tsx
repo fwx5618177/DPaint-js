@@ -49,6 +49,10 @@ export function MenuBar() {
     recordedFrameCount,
     toggleRecording,
     exportRecording,
+    showGrid,
+    toggleGrid,
+    showRulers,
+    toggleRulers,
   } = useEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -386,6 +390,26 @@ export function MenuBar() {
         onClick={ditherImage}
       >
         Dither
+      </button>
+      <button
+        type="button"
+        data-testid="menu-grid"
+        className={showGrid ? "active" : ""}
+        aria-pressed={showGrid}
+        title="Toggle pixel grid"
+        onClick={toggleGrid}
+      >
+        Grid
+      </button>
+      <button
+        type="button"
+        data-testid="menu-rulers"
+        className={showRulers ? "active" : ""}
+        aria-pressed={showRulers}
+        title="Toggle rulers"
+        onClick={toggleRulers}
+      >
+        Rulers
       </button>
       <span className="spacer" />
       <button

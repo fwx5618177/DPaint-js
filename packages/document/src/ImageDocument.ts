@@ -1,5 +1,5 @@
 import type { ColorArray } from "@dpaint/primitives";
-import { resample } from "@dpaint/imaging";
+import { resample, rotateArbitrary } from "@dpaint/imaging";
 
 /** An RGBA pixel, channels 0-255. */
 export type RGBA = [number, number, number, number];
@@ -588,6 +588,19 @@ export class ImageDocument {
   resampled(newWidth: number, newHeight: number): ImageDocument {
     return this.transformAllFrames(newWidth, newHeight, (src) =>
       resample(src, this.width, this.height, newWidth, newHeight),
+    );
+  }
+
+  /** Return a new document rotated by an arbitrary angle (degrees, all frames). */
+  rotatedFree(angleDeg: number): ImageDocument {
+    const probe = rotateArbitrary(
+      new Uint8ClampedArray(this.width * this.height * 4),
+      this.width,
+      this.height,
+      angleDeg,
+    );
+    return this.transformAllFrames(probe.width, probe.height, (src) =>
+      rotateArbitrary(src, this.width, this.height, angleDeg).data,
     );
   }
 

@@ -44,3 +44,4 @@ export {
   type DotsOptions,
 } from "./artistic.js";
 export { bicubicResize, areaDownscale, resample, matte } from "./resample.js";
+export { rotateArbitrary, stackBlur, type RotatedImage } from "./rotate.js";

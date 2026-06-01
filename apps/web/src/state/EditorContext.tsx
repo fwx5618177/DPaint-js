@@ -36,7 +36,6 @@ import {
   indicesToRGBA,
   posterize,
   threshold,
-  boxBlur,
   cyclePalette,
   reduceColorDepth,
   reducePalette,
@@ -51,6 +50,7 @@ import {
   web,
   ripples,
   matte,
+  stackBlur,
   type ColorRange,
   type ColorDepth,
 } from "@dpaint/imaging";
@@ -94,6 +94,8 @@ export interface EditorApi {
   resampleScale: (factor: number) => void;
   /** Rotate the whole document 90° (left = counter-clockwise). */
   rotate: (left: boolean) => void;
+  /** Rotate the whole document by an arbitrary angle (degrees). */
+  rotateFree: (angleDeg: number) => void;
   /** Alpha-matte (defringe) the active layer. */
   matteImage: () => void;
   swapColors: () => void;
@@ -290,6 +292,15 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     [commit],
   );
 
+  const rotateFree = useCallback(
+    (angleDeg: number) => {
+      docRef.current = docRef.current.rotatedFree(angleDeg);
+      historyRef.current.reset(docRef.current.snapshot());
+      commit();
+    },
+    [commit],
+  );
+
   const matteImage = useCallback(() => {
     const doc = docRef.current;
     doc.activeLayer.data.set(matte(doc.activeLayer.data, doc.width, doc.height));
@@ -455,7 +466,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
   const blurImage = useCallback(() => {
     const doc = docRef.current;
     const layer = doc.activeLayer;
-    layer.data.set(boxBlur(layer.data, doc.width, doc.height, 1));
+    layer.data.set(stackBlur(layer.data, doc.width, doc.height, 2));
     checkpoint();
   }, [checkpoint]);
 
@@ -645,6 +656,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       scale,
       resampleScale,
       rotate,
+      rotateFree,
       matteImage,
       swapColors,
       checkpoint,
@@ -705,6 +717,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       scale,
       resampleScale,
       rotate,
+      rotateFree,
       matteImage,
       swapColors,
       checkpoint,

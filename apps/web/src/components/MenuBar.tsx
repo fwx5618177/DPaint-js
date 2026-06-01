@@ -10,6 +10,7 @@ export function MenuBar() {
     scale,
     resampleScale,
     rotate,
+    rotateFree,
     matteImage,
     zoom,
     setZoom,
@@ -314,6 +315,18 @@ export function MenuBar() {
         onClick={() => rotate(false)}
       >
         ⟳
+      </button>
+      <button
+        type="button"
+        data-testid="menu-rotate-free"
+        title="Rotate by an arbitrary angle"
+        onClick={() => {
+          const v = typeof window !== "undefined" ? window.prompt("Rotate by degrees:", "45") : null;
+          const deg = v ? Number(v) : NaN;
+          if (!Number.isNaN(deg)) rotateFree(deg);
+        }}
+      >
+        ∠
       </button>
       <button type="button" data-testid="menu-matte" title="Defringe transparent edges" onClick={matteImage}>
         Matte

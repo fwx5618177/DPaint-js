@@ -88,6 +88,7 @@ The migrated code currently ships **151 passing tests at ~87% coverage**.
   flood fill, and colour picker
 - 16-colour palette with foreground/background swatches and swap
 - Layer panel (add / remove / reorder-by-activation / visibility toggle)
+- Image transforms (flip horizontal/vertical) and colour effects (invert, greyscale)
 - Undo / redo (bounded history of document snapshots) with `Ctrl`/`Cmd`+`Z`
 - Project save / load to a JSON `.dpaint.json` format
 - Keyboard shortcuts for tools, zoom, colour swap, and undo/redo

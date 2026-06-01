@@ -14,7 +14,10 @@ export function MenuBar() {
     serialize,
     loadProject,
     exportPNG,
+    exportGIF,
     loadImageBytes,
+    paletteFromImage,
+    ditherImage,
     invert,
     grayscale,
   } = useEditor();
@@ -35,6 +38,10 @@ export function MenuBar() {
   const handleExportPNG = async () => {
     const png = await exportPNG();
     download(png as unknown as BlobPart, "untitled.png", "image/png");
+  };
+
+  const handleExportGIF = () => {
+    download(exportGIF() as unknown as BlobPart, "untitled.gif", "image/gif");
   };
 
   const handleLoadFile = async (file: File) => {
@@ -67,6 +74,9 @@ export function MenuBar() {
       </button>
       <button type="button" data-testid="menu-export-png" onClick={() => void handleExportPNG()}>
         PNG
+      </button>
+      <button type="button" data-testid="menu-export-gif" onClick={handleExportGIF}>
+        GIF
       </button>
       <button
         type="button"
@@ -139,6 +149,22 @@ export function MenuBar() {
       </button>
       <button type="button" data-testid="menu-grayscale" onClick={grayscale}>
         Greyscale
+      </button>
+      <button
+        type="button"
+        data-testid="menu-palette-from-image"
+        title="Build the palette from the image"
+        onClick={paletteFromImage}
+      >
+        Palette
+      </button>
+      <button
+        type="button"
+        data-testid="menu-dither"
+        title="Dither the layer to the palette (Floyd–Steinberg)"
+        onClick={ditherImage}
+      >
+        Dither
       </button>
       <span className="spacer" />
       <button

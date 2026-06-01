@@ -9,7 +9,13 @@ import {
 } from "react";
 import { COMMAND, createEventBus, type EventBus } from "@dpaint/core";
 import type { ColorArray } from "@dpaint/util";
-import { detectFormat, encodePNG, decodePNG, decodeGIF } from "@dpaint/fileformats";
+import { detectFormat, encodePNG, decodePNG, decodeGIF, encodeGIF } from "@dpaint/fileformats";
+import {
+  buildPaletteFromImage,
+  quantizeToPalette,
+  floydSteinberg,
+  indicesToRGBA,
+} from "@dpaint/imaging";
 import { ImageDocument, type DocumentSnapshot } from "../model/ImageDocument";
 import { History } from "../model/History";
 import { serializeToString, deserializeFromString } from "../model/serialization";
@@ -50,8 +56,14 @@ export interface EditorApi {
   loadProject: (json: string) => void;
   /** Encode the flattened document as PNG bytes. */
   exportPNG: () => Promise<Uint8Array>;
-  /** Load an image file (currently PNG) into a new document. Returns true on success. */
+  /** Encode the flattened document as a (quantized) GIF. */
+  exportGIF: () => Uint8Array;
+  /** Load an image file (PNG or GIF) into a new document. Returns true on success. */
   loadImageBytes: (bytes: Uint8Array, name?: string) => Promise<boolean>;
+
+  /** Colour reduction: derive the palette from the image, or dither to it. */
+  paletteFromImage: () => void;
+  ditherImage: () => void;
 
   /** Image transforms (all layers) and layer effects, each an undo checkpoint. */
   flipHorizontal: () => void;
@@ -147,6 +159,32 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     return encodePNG({ width: doc.width, height: doc.height, data: doc.composite() });
   }, []);
 
+  const exportGIF = useCallback(() => {
+    const doc = docRef.current;
+    const composite = doc.composite();
+    const palette = doc.palette.length ? doc.palette : buildPaletteFromImage(composite, 256);
+    const pixels = quantizeToPalette(composite, palette);
+    return encodeGIF({ width: doc.width, height: doc.height, pixels, palette });
+  }, []);
+
+  const paletteFromImage = useCallback(() => {
+    const doc = docRef.current;
+    doc.palette = buildPaletteFromImage(doc.composite(), 16);
+    checkpoint();
+  }, [checkpoint]);
+
+  const ditherImage = useCallback(() => {
+    const doc = docRef.current;
+    const layer = doc.activeLayer;
+    const { indices } = floydSteinberg(layer.data, doc.width, doc.height, doc.palette);
+    const rgba = indicesToRGBA(indices, doc.palette);
+    for (let i = 0; i < layer.data.length; i += 4) {
+      if (layer.data[i + 3] === 0) rgba[i + 3] = 0; // preserve transparency
+    }
+    layer.data.set(rgba);
+    checkpoint();
+  }, [checkpoint]);
+
   const loadImageBytes = useCallback(
     async (bytes: Uint8Array, name = "") => {
       const format = detectFormat(bytes, name);
@@ -196,7 +234,10 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       serialize,
       loadProject,
       exportPNG,
+      exportGIF,
       loadImageBytes,
+      paletteFromImage,
+      ditherImage,
       flipHorizontal,
       flipVertical,
       invert,
@@ -217,7 +258,10 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       serialize,
       loadProject,
       exportPNG,
+      exportGIF,
       loadImageBytes,
+      paletteFromImage,
+      ditherImage,
       flipHorizontal,
       flipVertical,
       invert,
@@ -246,6 +290,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     bus.on(COMMAND.REDO, () => redo());
     bus.on(COMMAND.FLIPHORIZONTAL, () => flipHorizontal());
     bus.on(COMMAND.FLIPVERTICAL, () => flipVertical());
+    bus.on(COMMAND.PALETTEFROMIMAGE, () => paletteFromImage());
   }
 
   return <EditorContext.Provider value={api}>{children}</EditorContext.Provider>;

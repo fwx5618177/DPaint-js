@@ -1,0 +1,21 @@
+{
+  "name": "@dpaint/imaging",
+  "version": "0.3.0",
+  "description": "Colour reduction for DPaint.js: quantization, median-cut palettes and dithering.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dpaint/util": "workspace:*"
+  }
+}

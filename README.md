@@ -51,7 +51,8 @@ in `apps/web` as a React + Vite application.
 ├── packages/
 │   ├── core/         @dpaint/core — commands/events enums, typed EventBus, user settings
 │   ├── util/         @dpaint/util — colour maths, CRC32, BinaryStream, text helpers
-│   └── fileformats/  @dpaint/fileformats — ByteRun1/PackBits codec + format detection
+│   ├── fileformats/  @dpaint/fileformats — codecs (PNG, GIF, ByteRun1) + detection
+│   └── imaging/      @dpaint/imaging — quantization, median-cut palettes, dithering
 ├── apps/
 │   └── web/          @dpaint/web — React + TypeScript paint application (Vite)
 └── legacy/           the original plain-JS app, quarantined as migration reference
@@ -114,14 +115,14 @@ Ported to TypeScript with tests:
 - [x] ByteRun1/PackBits codec, file-format detection (`@dpaint/fileformats`)
 - [x] zlib (deflate/inflate) + PNG encode/decode (`@dpaint/fileformats`)
 - [x] LZW codec + GIF decode/encode (`@dpaint/fileformats`)
+- [x] colour quantization, median-cut palettes, ordered + Floyd–Steinberg dither (`@dpaint/imaging`)
 - [x] raster document, layers, drawing tools, transforms/effects, undo/redo (`@dpaint/web`)
-- [x] PNG + GIF + JSON-project import in the app; PNG + JSON export
+- [x] PNG + GIF + JSON import; PNG + GIF + JSON export; palette-from-image + dither
 
 Still living only in `legacy/` (to be ported next):
 - [ ] IFF (ILBM/HAM/SHAM) and PSD parsers
-- [ ] `imageProcessing` + colour quantizers (and GIF export wiring)
 - [ ] `alchemy` effects/filters
-- [ ] advanced UI panels (dither, colour-cycling, ADF browser, gallery, Amiga emulator)
+- [ ] advanced UI panels (colour-cycling, ADF browser, gallery, Amiga emulator)
 
 ## Documentation
 Documentation can be found at https://dpaint.app/docs/

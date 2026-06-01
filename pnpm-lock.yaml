@@ -29,6 +29,9 @@ importers:
       '@dpaint/fileformats':
         specifier: workspace:*
         version: link:../../packages/fileformats
+      '@dpaint/imaging':
+        specifier: workspace:*
+        version: link:../../packages/imaging
       '@dpaint/util':
         specifier: workspace:*
         version: link:../../packages/util
@@ -82,6 +85,12 @@ importers:
   packages/core: {}
 
   packages/fileformats:
+    dependencies:
+      '@dpaint/util':
+        specifier: workspace:*
+        version: link:../util
+
+  packages/imaging:
     dependencies:
       '@dpaint/util':
         specifier: workspace:*

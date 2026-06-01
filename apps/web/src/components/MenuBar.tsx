@@ -23,6 +23,7 @@ export function MenuBar() {
     posterizeImage,
     thresholdImage,
     blurImage,
+    reduceToDepth,
     colorCycleActive,
     toggleColorCycle,
     hasClipboard,
@@ -197,6 +198,22 @@ export function MenuBar() {
       </button>
       <button type="button" data-testid="menu-blur" onClick={blurImage}>
         Blur
+      </button>
+      <button
+        type="button"
+        data-testid="menu-depth-12"
+        title="Limit to Amiga 12-bit colour"
+        onClick={() => reduceToDepth(4)}
+      >
+        12-bit
+      </button>
+      <button
+        type="button"
+        data-testid="menu-depth-9"
+        title="Limit to Atari ST 9-bit colour"
+        onClick={() => reduceToDepth(3)}
+      >
+        9-bit
       </button>
       <span className="menu-sep" aria-hidden="true" />
       <button

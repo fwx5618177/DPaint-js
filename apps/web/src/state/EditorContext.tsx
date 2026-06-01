@@ -34,7 +34,10 @@ import {
   threshold,
   boxBlur,
   cyclePalette,
+  reduceColorDepth,
+  reducePalette,
   type ColorRange,
+  type ColorDepth,
 } from "@dpaint/imaging";
 import {
   ImageDocument,
@@ -99,6 +102,8 @@ export interface EditorApi {
   posterizeImage: () => void;
   thresholdImage: () => void;
   blurImage: () => void;
+  /** Limit colours to an Amiga/Atari hardware depth (4 = 12-bit, 3 = 9-bit). */
+  reduceToDepth: (depth: ColorDepth) => void;
 
   /** Amiga-style colour cycling (non-destructive animated preview). */
   colorCycleActive: boolean;
@@ -373,6 +378,16 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     checkpoint();
   }, [checkpoint]);
 
+  const reduceToDepth = useCallback(
+    (depth: ColorDepth) => {
+      const doc = docRef.current;
+      doc.activeLayer.data.set(reduceColorDepth(doc.activeLayer.data, depth));
+      doc.palette = reducePalette(doc.palette, depth);
+      checkpoint();
+    },
+    [checkpoint],
+  );
+
   const stopColorCycle = useCallback(() => {
     const session = cycleRef.current;
     if (!session) return;
@@ -497,6 +512,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       posterizeImage,
       thresholdImage,
       blurImage,
+      reduceToDepth,
       colorCycleActive,
       toggleColorCycle,
       frameCount: docRef.current.frameCount,
@@ -543,6 +559,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       posterizeImage,
       thresholdImage,
       blurImage,
+      reduceToDepth,
       colorCycleActive,
       toggleColorCycle,
       addFrame,
@@ -595,6 +612,8 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     bus.on(COMMAND.ADDFRAME, () => addFrame());
     bus.on(COMMAND.DELETEFRAME, () => deleteFrame());
     bus.on(COMMAND.DUPLICATEFRAME, () => duplicateFrame());
+    bus.on(COMMAND.COLORDEPTH12, () => reduceToDepth(4));
+    bus.on(COMMAND.COLORDEPTH9, () => reduceToDepth(3));
   }
 
   return <EditorContext.Provider value={api}>{children}</EditorContext.Provider>;

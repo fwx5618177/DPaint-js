@@ -18,3 +18,10 @@ export {
   boxBlur,
 } from "./effects.js";
 export { cyclePalette, type ColorRange } from "./colorcycle.js";
+export {
+  reduceColor,
+  reduceColorDepth,
+  reducePalette,
+  extraHalfBrite,
+  type ColorDepth,
+} from "./colordepth.js";

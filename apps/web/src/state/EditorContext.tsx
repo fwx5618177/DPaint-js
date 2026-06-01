@@ -63,6 +63,7 @@ import {
 import { History } from "@dpaint/document";
 import { serializeToString, deserializeFromString } from "@dpaint/document";
 import type { ToolId } from "@dpaint/document";
+import { saveAutosave, loadAutosave } from "./autosave";
 
 export type ArtisticFilter = "displace" | "glow" | "dots" | "speckles" | "lines" | "web" | "ripples";
 
@@ -170,6 +171,15 @@ export interface EditorApi {
   flipVertical: () => void;
   invert: () => void;
   grayscale: () => void;
+
+  /** Restore the last autosaved project from local storage (if any). */
+  restoreAutosave: () => boolean;
+
+  /** Session recorder: capture each edit as a frame and export an animated GIF. */
+  recording: boolean;
+  recordedFrameCount: number;
+  toggleRecording: () => void;
+  exportRecording: () => Uint8Array | null;
 }
 
 const EditorContext = createContext<EditorApi | null>(null);
@@ -177,11 +187,18 @@ const EditorContext = createContext<EditorApi | null>(null);
 export interface EditorProviderProps {
   width?: number;
   height?: number;
+  /** Restore the autosaved project on mount (the real app; off in tests). */
+  autoRestore?: boolean;
   children: ReactNode;
 }
 
-export function EditorProvider({ width = 64, height = 48, children }: EditorProviderProps) {
+export function EditorProvider({ width = 64, height = 48, autoRestore = false, children }: EditorProviderProps) {
   const docRef = useRef<ImageDocument>(new ImageDocument({ width, height }));
+  const [recording, setRecording] = useState(false);
+  const recordingRef = useRef(false);
+  const recordedFramesRef = useRef<Uint8ClampedArray[]>([]);
+  const [recordedFrameCount, setRecordedFrameCount] = useState(0);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [version, setVersion] = useState(0);
   const [tool, setTool] = useState<ToolId>("pencil");
   const [color, setColor] = useState<ColorArray>([255, 255, 255]);
@@ -203,8 +220,63 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
 
   const checkpoint = useCallback(() => {
     historyRef.current.push(docRef.current.snapshot());
+    // debounced autosave to local storage
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      saveAutosave(serializeToString(docRef.current));
+    }, 800);
+    // session recorder
+    if (recordingRef.current) {
+      recordedFramesRef.current.push(docRef.current.composite());
+      setRecordedFrameCount(recordedFramesRef.current.length);
+    }
     setVersion((v) => v + 1);
   }, []);
+
+  const restoreAutosave = useCallback(() => {
+    const json = loadAutosave();
+    if (!json) return false;
+    try {
+      docRef.current = deserializeFromString(json);
+      historyRef.current.reset(docRef.current.snapshot());
+      setVersion((v) => v + 1);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const toggleRecording = useCallback(() => {
+    if (recordingRef.current) {
+      recordingRef.current = false;
+      setRecording(false);
+    } else {
+      recordingRef.current = true;
+      recordedFramesRef.current = [docRef.current.composite()];
+      setRecordedFrameCount(1);
+      setRecording(true);
+    }
+  }, []);
+
+  const exportRecording = useCallback((): Uint8Array | null => {
+    const frames = recordedFramesRef.current;
+    if (frames.length === 0) return null;
+    const doc = docRef.current;
+    const palette = buildPaletteFromImage(frames[frames.length - 1]!, 256);
+    return encodeAnimatedGIF({
+      width: doc.width,
+      height: doc.height,
+      palette,
+      frames: frames.map((f) => ({ pixels: quantizeToPalette(f, palette), delayMs: 150 })),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (autoRestore) restoreAutosave();
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    };
+  }, [autoRestore, restoreAutosave]);
 
   const undo = useCallback(() => {
     const snap = historyRef.current.undo();
@@ -704,6 +776,11 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       flipVertical,
       invert,
       grayscale,
+      restoreAutosave,
+      recording,
+      recordedFrameCount,
+      toggleRecording,
+      exportRecording,
     }),
     [
       version,
@@ -761,6 +838,11 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       flipVertical,
       invert,
       grayscale,
+      restoreAutosave,
+      recording,
+      recordedFrameCount,
+      toggleRecording,
+      exportRecording,
     ],
   );
 

@@ -44,6 +44,11 @@ export function MenuBar() {
     paste,
     invert,
     grayscale,
+    restoreAutosave,
+    recording,
+    recordedFrameCount,
+    toggleRecording,
+    exportRecording,
   } = useEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -154,6 +159,31 @@ export function MenuBar() {
         onClick={() => fileInputRef.current?.click()}
       >
         Load
+      </button>
+      <button type="button" data-testid="menu-restore" onClick={() => restoreAutosave()}>
+        Restore
+      </button>
+      <button
+        type="button"
+        data-testid="menu-record"
+        className={recording ? "active" : ""}
+        aria-pressed={recording}
+        title="Record edits as animation frames"
+        onClick={toggleRecording}
+      >
+        {recording ? `Rec ${recordedFrameCount}` : "Rec"}
+      </button>
+      <button
+        type="button"
+        data-testid="menu-export-rec"
+        disabled={recordedFrameCount === 0}
+        title="Export the recording as an animated GIF"
+        onClick={() => {
+          const gif = exportRecording();
+          if (gif) download(gif as unknown as BlobPart, "recording.gif", "image/gif");
+        }}
+      >
+        Save Rec
       </button>
       <input
         ref={fileInputRef}

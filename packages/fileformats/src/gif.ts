@@ -184,5 +184,82 @@ export function encodeGIF(input: GifEncodeInput): Uint8Array {
   return new Uint8Array(file.buffer);
 }
 
-const GIF = { decodeGIF, encodeGIF };
+export interface GifAnimFrame {
+  /** Palette index per pixel, width*height. */
+  pixels: ArrayLike<number>;
+  /** Frame delay in milliseconds (rounded to 1/100 s). */
+  delayMs?: number;
+}
+
+export interface GifAnimEncodeInput {
+  width: number;
+  height: number;
+  palette: ColorArray[];
+  frames: GifAnimFrame[];
+  /** Loop count; 0 = forever (default). */
+  loop?: number;
+}
+
+/** Encode a looping animated GIF89a with a global colour table. */
+export function encodeAnimatedGIF(input: GifAnimEncodeInput): Uint8Array {
+  const { width, height, palette, frames } = input;
+  const loop = input.loop ?? 0;
+  const depth = colorDepthFor(palette.length);
+  const gctSize = depth - 1;
+  const colorCount = 1 << depth;
+
+  const encoded = frames.map((f) => LZW.encode(f.pixels, width, height, depth));
+
+  let size = 6 + 7 + colorCount * 3 + 19 /* NETSCAPE loop ext */ + 1 /* trailer */;
+  for (const lzw of encoded) size += 8 /* GCE */ + 10 /* image descriptor */ + lzw.length;
+
+  const file = new BinaryStream(new ArrayBuffer(size), false);
+  file.writeString("GIF89a");
+  file.writeWord(width);
+  file.writeWord(height);
+  file.writeUbyte(0x80 | 0x70 | gctSize);
+  file.writeUbyte(0);
+  file.writeUbyte(0);
+  for (let i = 0; i < colorCount; i++) {
+    const c = palette[i] ?? [0, 0, 0];
+    file.writeUbyte(c[0]!);
+    file.writeUbyte(c[1]!);
+    file.writeUbyte(c[2]!);
+  }
+
+  // NETSCAPE2.0 looping extension
+  file.writeUbyte(0x21);
+  file.writeUbyte(0xff);
+  file.writeUbyte(0x0b);
+  file.writeString("NETSCAPE2.0");
+  file.writeUbyte(0x03);
+  file.writeUbyte(0x01);
+  file.writeWord(loop);
+  file.writeUbyte(0x00);
+
+  frames.forEach((frame, i) => {
+    const delayCs = Math.round((frame.delayMs ?? 100) / 10); // 1/100 s
+    file.writeUbyte(0x21); // GCE
+    file.writeUbyte(0xf9);
+    file.writeUbyte(0x04);
+    file.writeUbyte(0x08); // disposal: restore to background
+    file.writeWord(delayCs);
+    file.writeUbyte(0); // transparent index
+    file.writeUbyte(0); // terminator
+
+    file.writeUbyte(0x2c); // image descriptor
+    file.writeWord(0);
+    file.writeWord(0);
+    file.writeWord(width);
+    file.writeWord(height);
+    file.writeUbyte(0);
+
+    file.writeByteArray(encoded[i]!);
+  });
+
+  file.writeUbyte(0x3b);
+  return new Uint8Array(file.buffer);
+}
+
+const GIF = { decodeGIF, encodeGIF, encodeAnimatedGIF };
 export default GIF;

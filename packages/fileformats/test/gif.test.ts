@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { encodeGIF, decodeGIF } from "../src/gif.js";
+import { encodeGIF, decodeGIF, encodeAnimatedGIF } from "../src/gif.js";
 import { encode as lzwEncode } from "../src/lzw.js";
 import { detectFormat } from "../src/detect.js";
 import type { ColorArray } from "@dpaint/util";
@@ -71,6 +71,27 @@ describe("GIF round-trip", () => {
     const gif = encodeGIF({ width: 1, height: 1, pixels: [1], palette: PALETTE });
     const decoded = decodeGIF(gif);
     expect(decoded.frames[0]!.data[3]).toBe(255);
+  });
+});
+
+describe("animated GIF", () => {
+  it("encodes multiple frames that decode back to distinct images", () => {
+    const width = 2;
+    const height = 2;
+    const gif = encodeAnimatedGIF({
+      width,
+      height,
+      palette: PALETTE,
+      frames: [
+        { pixels: [0, 0, 0, 0], delayMs: 100 }, // all black
+        { pixels: [1, 1, 1, 1], delayMs: 100 }, // all red
+      ],
+    });
+    expect(detectFormat(gif)).toBe("GIF");
+    const decoded = decodeGIF(gif);
+    expect(decoded.frames).toHaveLength(2);
+    expect(rgbaAt(decoded.frames[0]!.data, 0, 0, width)).toEqual([0, 0, 0, 255]);
+    expect(rgbaAt(decoded.frames[1]!.data, 0, 0, width)).toEqual([255, 0, 0, 255]);
   });
 });
 

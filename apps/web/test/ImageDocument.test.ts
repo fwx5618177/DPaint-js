@@ -205,6 +205,54 @@ describe("ImageDocument layers", () => {
   });
 });
 
+describe("ImageDocument frames", () => {
+  it("starts with one frame", () => {
+    const doc = newDoc();
+    expect(doc.frameCount).toBe(1);
+    expect(doc.activeFrameIndex).toBe(0);
+  });
+
+  it("adds a blank frame and activates it", () => {
+    const doc = newDoc();
+    doc.setPixel(0, 0, [9, 9, 9]);
+    doc.addFrame();
+    expect(doc.frameCount).toBe(2);
+    expect(doc.activeFrameIndex).toBe(1);
+    expect(doc.getPixel(0, 0)).toEqual([0, 0, 0, 0]); // new frame is blank
+  });
+
+  it("duplicates a frame (independent copy)", () => {
+    const doc = newDoc();
+    doc.setPixel(0, 0, [1, 2, 3]);
+    doc.duplicateFrame();
+    expect(doc.getPixel(0, 0)).toEqual([1, 2, 3, 255]);
+    // editing the duplicate must not affect the original frame
+    doc.setPixel(0, 0, [9, 9, 9]);
+    doc.goToFrame(0);
+    expect(doc.getPixel(0, 0)).toEqual([1, 2, 3, 255]);
+  });
+
+  it("never removes the last frame and clamps the active index", () => {
+    const doc = newDoc();
+    doc.removeFrame(0);
+    expect(doc.frameCount).toBe(1);
+    doc.addFrame();
+    doc.addFrame();
+    doc.goToFrame(2);
+    doc.removeFrame(2);
+    expect(doc.activeFrameIndex).toBe(1);
+  });
+
+  it("each frame keeps independent layers", () => {
+    const doc = newDoc();
+    doc.addLayer(); // frame 0 now has 2 layers
+    doc.addFrame(); // frame 1 blank (1 layer)
+    expect(doc.layers).toHaveLength(1);
+    doc.goToFrame(0);
+    expect(doc.layers).toHaveLength(2);
+  });
+});
+
 describe("ImageDocument selection / clipboard", () => {
   it("copies a region into a detached buffer", () => {
     const doc = newDoc(4, 4);

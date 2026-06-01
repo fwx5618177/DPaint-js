@@ -4,6 +4,7 @@ import { Toolbar } from "./components/Toolbar";
 import { Palette } from "./components/Palette";
 import { CanvasView } from "./components/CanvasView";
 import { LayerPanel } from "./components/LayerPanel";
+import { FramesPanel } from "./components/FramesPanel";
 import { StatusBar } from "./components/StatusBar";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 
@@ -20,6 +21,7 @@ function Workspace() {
         <aside className="sidepanel">
           <Palette />
           <LayerPanel />
+          <FramesPanel />
         </aside>
       </div>
       <StatusBar />

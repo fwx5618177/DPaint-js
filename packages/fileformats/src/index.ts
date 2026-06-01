@@ -10,8 +10,14 @@ export type { RasterImage, DecodedPNG } from "./png.js";
 
 export { default as LZW } from "./lzw.js";
 export * as LZWCodec from "./lzw.js";
-export { decodeGIF, encodeGIF, default as GIF } from "./gif.js";
-export type { DecodedGIF, GifFrame, GifEncodeInput } from "./gif.js";
+export { decodeGIF, encodeGIF, encodeAnimatedGIF, default as GIF } from "./gif.js";
+export type {
+  DecodedGIF,
+  GifFrame,
+  GifEncodeInput,
+  GifAnimFrame,
+  GifAnimEncodeInput,
+} from "./gif.js";
 
 export { decodeILBM, encodeILBM, encodeTrueColorILBM, default as IFF } from "./iff.js";
 export type { DecodedILBM, ILBMMode, ILBMEncodeInput, ILBM24EncodeInput } from "./iff.js";

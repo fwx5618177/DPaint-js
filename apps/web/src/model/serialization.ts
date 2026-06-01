@@ -17,7 +17,11 @@ export interface SerializedDocument {
   height: number;
   activeLayerIndex: number;
   palette: ColorArray[];
+  /** Active frame's layers (kept for backward compatibility). */
   layers: SerializedLayer[];
+  /** All animation frames. Absent in older single-frame files. */
+  frames?: SerializedLayer[][];
+  activeFrameIndex?: number;
 }
 
 export const PROJECT_FORMAT = "dpaintjs" as const;
@@ -39,6 +43,10 @@ function base64ToBytes(b64: string): Uint8ClampedArray {
   return out;
 }
 
+function serializeLayer(l: { name: string; visible: boolean; opacity: number; data: Uint8ClampedArray }): SerializedLayer {
+  return { name: l.name, visible: l.visible, opacity: l.opacity, data: bytesToBase64(l.data) };
+}
+
 /** Serialize a document to the JSON project structure. */
 export function serializeDocument(doc: ImageDocument): SerializedDocument {
   return {
@@ -47,13 +55,10 @@ export function serializeDocument(doc: ImageDocument): SerializedDocument {
     width: doc.width,
     height: doc.height,
     activeLayerIndex: doc.activeLayerIndex,
+    activeFrameIndex: doc.activeFrameIndex,
     palette: doc.palette.map((c) => c.slice()),
-    layers: doc.layers.map((l) => ({
-      name: l.name,
-      visible: l.visible,
-      opacity: l.opacity,
-      data: bytesToBase64(l.data),
-    })),
+    layers: doc.layers.map(serializeLayer),
+    frames: doc.frames.map((frame) => frame.map(serializeLayer)),
   };
 }
 
@@ -75,15 +80,21 @@ export function deserializeDocument(data: SerializedDocument): ImageDocument {
     height: data.height,
     palette: data.palette.map((c) => c.slice()),
   });
-  doc.layers = data.layers.map((l) => {
+  const expected = data.width * data.height * 4;
+  const toLayer = (l: SerializedLayer) => {
     const bytes = base64ToBytes(l.data);
-    const expected = data.width * data.height * 4;
     if (bytes.length !== expected) {
       throw new Error(`Layer "${l.name}" has ${bytes.length} bytes, expected ${expected}`);
     }
     return { name: l.name, visible: l.visible, opacity: l.opacity, data: bytes };
+  };
+
+  const sourceFrames = data.frames && data.frames.length ? data.frames : [data.layers];
+  doc.frames = sourceFrames.map((frame) => {
+    const layers = frame.map(toLayer);
+    return layers.length ? layers : [doc.createLayer("Layer 1")];
   });
-  if (doc.layers.length === 0) doc.layers = [doc.createLayer("Layer 1")];
+  doc.activeFrameIndex = Math.min(Math.max(0, data.activeFrameIndex ?? 0), doc.frames.length - 1);
   doc.activeLayerIndex = Math.min(Math.max(0, data.activeLayerIndex), doc.layers.length - 1);
   return doc;
 }

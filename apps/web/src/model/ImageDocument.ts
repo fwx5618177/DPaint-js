@@ -56,7 +56,9 @@ export class ImageDocument {
   readonly width: number;
   readonly height: number;
   palette: ColorArray[];
-  layers: Layer[];
+  /** Animation frames; each frame is its own stack of layers. */
+  frames: Layer[][];
+  activeFrameIndex = 0;
   activeLayerIndex = 0;
   /** Current rectangular selection, or null for "whole image". */
   selection: SelectionRect | null = null;
@@ -65,7 +67,51 @@ export class ImageDocument {
     this.width = options.width;
     this.height = options.height;
     this.palette = options.palette ?? ImageDocument.defaultPalette();
-    this.layers = [this.createLayer("Layer 1")];
+    this.frames = [[this.createLayer("Layer 1")]];
+  }
+
+  /** Layers of the active frame (the editable stack). */
+  get layers(): Layer[] {
+    return this.frames[this.activeFrameIndex]!;
+  }
+  set layers(value: Layer[]) {
+    this.frames[this.activeFrameIndex] = value;
+  }
+
+  get frameCount(): number {
+    return this.frames.length;
+  }
+
+  /** Append a frame — blank, or a deep copy of the current frame. */
+  addFrame(duplicate = false): void {
+    const frame = duplicate
+      ? this.layers.map((l) => ({
+          name: l.name,
+          visible: l.visible,
+          opacity: l.opacity,
+          data: new Uint8ClampedArray(l.data),
+        }))
+      : [this.createLayer("Layer 1")];
+    this.frames.push(frame);
+    this.activeFrameIndex = this.frames.length - 1;
+    this.activeLayerIndex = Math.min(this.activeLayerIndex, this.layers.length - 1);
+  }
+
+  duplicateFrame(): void {
+    this.addFrame(true);
+  }
+
+  removeFrame(index: number): void {
+    if (this.frames.length <= 1) return;
+    this.frames.splice(index, 1);
+    this.activeFrameIndex = Math.min(this.activeFrameIndex, this.frames.length - 1);
+    this.activeLayerIndex = Math.min(this.activeLayerIndex, this.layers.length - 1);
+  }
+
+  goToFrame(index: number): void {
+    if (index < 0 || index >= this.frames.length) return;
+    this.activeFrameIndex = index;
+    this.activeLayerIndex = Math.min(this.activeLayerIndex, this.layers.length - 1);
   }
 
   /** Build a single-layer document from a raw RGBA pixel buffer. */
@@ -455,46 +501,28 @@ export class ImageDocument {
    * structure, names, visibility, opacity and the palette are carried over.
    */
   resized(newWidth: number, newHeight: number): ImageDocument {
-    const out = new ImageDocument({
-      width: newWidth,
-      height: newHeight,
-      palette: this.palette.map((c) => c.slice()),
-    });
-    out.layers = this.layers.map((layer, index) => {
-      const dst = index === 0 ? out.layers[0]! : out.createLayer(layer.name);
-      dst.name = layer.name;
-      dst.visible = layer.visible;
-      dst.opacity = layer.opacity;
+    return this.transformAllFrames(newWidth, newHeight, (src) => {
+      const dst = new Uint8ClampedArray(newWidth * newHeight * 4);
       for (let y = 0; y < newHeight; y++) {
         const sy = Math.min(this.height - 1, Math.floor((y * this.height) / newHeight));
         for (let x = 0; x < newWidth; x++) {
           const sx = Math.min(this.width - 1, Math.floor((x * this.width) / newWidth));
           const so = (sy * this.width + sx) * 4;
           const dstOff = (y * newWidth + x) * 4;
-          dst.data[dstOff] = layer.data[so]!;
-          dst.data[dstOff + 1] = layer.data[so + 1]!;
-          dst.data[dstOff + 2] = layer.data[so + 2]!;
-          dst.data[dstOff + 3] = layer.data[so + 3]!;
+          dst[dstOff] = src[so]!;
+          dst[dstOff + 1] = src[so + 1]!;
+          dst[dstOff + 2] = src[so + 2]!;
+          dst[dstOff + 3] = src[so + 3]!;
         }
       }
       return dst;
     });
-    out.activeLayerIndex = Math.min(this.activeLayerIndex, out.layers.length - 1);
-    return out;
   }
 
-  /** Return a new document cropped to the given rectangle. */
+  /** Return a new document cropped to the given rectangle (all frames). */
   cropped(x: number, y: number, w: number, h: number): ImageDocument {
-    const out = new ImageDocument({
-      width: w,
-      height: h,
-      palette: this.palette.map((c) => c.slice()),
-    });
-    out.layers = this.layers.map((layer, index) => {
-      const dst = index === 0 ? out.layers[0]! : out.createLayer(layer.name);
-      dst.name = layer.name;
-      dst.visible = layer.visible;
-      dst.opacity = layer.opacity;
+    return this.transformAllFrames(w, h, (src) => {
+      const dst = new Uint8ClampedArray(w * h * 4);
       for (let yy = 0; yy < h; yy++) {
         const sy = y + yy;
         if (sy < 0 || sy >= this.height) continue;
@@ -503,14 +531,36 @@ export class ImageDocument {
           if (sx < 0 || sx >= this.width) continue;
           const so = (sy * this.width + sx) * 4;
           const dstOff = (yy * w + xx) * 4;
-          dst.data[dstOff] = layer.data[so]!;
-          dst.data[dstOff + 1] = layer.data[so + 1]!;
-          dst.data[dstOff + 2] = layer.data[so + 2]!;
-          dst.data[dstOff + 3] = layer.data[so + 3]!;
+          dst[dstOff] = src[so]!;
+          dst[dstOff + 1] = src[so + 1]!;
+          dst[dstOff + 2] = src[so + 2]!;
+          dst[dstOff + 3] = src[so + 3]!;
         }
       }
       return dst;
     });
+  }
+
+  /** Build a new document of the given size, remapping every layer of every frame. */
+  private transformAllFrames(
+    newWidth: number,
+    newHeight: number,
+    mapData: (src: Uint8ClampedArray) => Uint8ClampedArray,
+  ): ImageDocument {
+    const out = new ImageDocument({
+      width: newWidth,
+      height: newHeight,
+      palette: this.palette.map((c) => c.slice()),
+    });
+    out.frames = this.frames.map((frame) =>
+      frame.map((layer) => ({
+        name: layer.name,
+        visible: layer.visible,
+        opacity: layer.opacity,
+        data: mapData(layer.data),
+      })),
+    );
+    out.activeFrameIndex = Math.min(this.activeFrameIndex, out.frames.length - 1);
     out.activeLayerIndex = Math.min(this.activeLayerIndex, out.layers.length - 1);
     return out;
   }
@@ -570,10 +620,11 @@ export class ImageDocument {
     }
   }
 
-  /** Flatten all visible layers (alpha-over) into a single RGBA buffer. */
-  composite(): Uint8ClampedArray {
+  /** Flatten all visible layers of a frame (alpha-over) into a single RGBA buffer. */
+  composite(frameIndex: number = this.activeFrameIndex): Uint8ClampedArray {
     const out = new Uint8ClampedArray(this.width * this.height * 4);
-    for (const layer of this.layers) {
+    const layers = this.frames[frameIndex] ?? this.layers;
+    for (const layer of layers) {
       if (!layer.visible || layer.opacity <= 0) continue;
       const src = layer.data;
       for (let i = 0; i < out.length; i += 4) {

@@ -68,7 +68,7 @@ describe("serialization validation", () => {
 
   it("rejects layer data of the wrong size", () => {
     const data = serializeDocument(new ImageDocument({ width: 2, height: 2 }));
-    data.layers[0]!.data = btoa("too short");
+    data.frames![0]![0]!.data = btoa("too short");
     expect(() => deserializeDocument(data)).toThrow(/bytes/);
   });
 });

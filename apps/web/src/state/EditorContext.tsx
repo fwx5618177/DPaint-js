@@ -16,6 +16,7 @@ import {
   decodePNG,
   decodeGIF,
   encodeGIF,
+  encodeAnimatedGIF,
   decodeILBM,
   encodeILBM,
   decodePSD,
@@ -102,6 +103,16 @@ export interface EditorApi {
   /** Amiga-style colour cycling (non-destructive animated preview). */
   colorCycleActive: boolean;
   toggleColorCycle: () => void;
+
+  /** Animation frames. */
+  frameCount: number;
+  activeFrameIndex: number;
+  addFrame: () => void;
+  duplicateFrame: () => void;
+  deleteFrame: () => void;
+  goToFrame: (index: number) => void;
+  nextFrame: () => void;
+  prevFrame: () => void;
 
   /** Selection + clipboard. */
   hasClipboard: boolean;
@@ -216,6 +227,41 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     [resize],
   );
 
+  const addFrame = useCallback(() => {
+    docRef.current.addFrame();
+    commit();
+  }, [commit]);
+
+  const duplicateFrame = useCallback(() => {
+    docRef.current.duplicateFrame();
+    commit();
+  }, [commit]);
+
+  const deleteFrame = useCallback(() => {
+    docRef.current.removeFrame(docRef.current.activeFrameIndex);
+    commit();
+  }, [commit]);
+
+  const goToFrame = useCallback(
+    (index: number) => {
+      docRef.current.goToFrame(index);
+      commit();
+    },
+    [commit],
+  );
+
+  const nextFrame = useCallback(() => {
+    const doc = docRef.current;
+    doc.goToFrame((doc.activeFrameIndex + 1) % doc.frameCount);
+    commit();
+  }, [commit]);
+
+  const prevFrame = useCallback(() => {
+    const doc = docRef.current;
+    doc.goToFrame((doc.activeFrameIndex - 1 + doc.frameCount) % doc.frameCount);
+    commit();
+  }, [commit]);
+
   const selectAll = useCallback(() => {
     const doc = docRef.current;
     doc.selection = { x: 0, y: 0, width: doc.width, height: doc.height };
@@ -270,9 +316,15 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
 
   const exportGIF = useCallback(() => {
     const doc = docRef.current;
-    const composite = doc.composite();
-    const palette = doc.palette.length ? doc.palette : buildPaletteFromImage(composite, 256);
-    const pixels = quantizeToPalette(composite, palette);
+    const palette = doc.palette.length ? doc.palette : buildPaletteFromImage(doc.composite(), 256);
+    if (doc.frameCount > 1) {
+      const frames = doc.frames.map((_, i) => ({
+        pixels: quantizeToPalette(doc.composite(i), palette),
+        delayMs: 120,
+      }));
+      return encodeAnimatedGIF({ width: doc.width, height: doc.height, palette, frames });
+    }
+    const pixels = quantizeToPalette(doc.composite(), palette);
     return encodeGIF({ width: doc.width, height: doc.height, pixels, palette });
   }, []);
 
@@ -447,6 +499,14 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       blurImage,
       colorCycleActive,
       toggleColorCycle,
+      frameCount: docRef.current.frameCount,
+      activeFrameIndex: docRef.current.activeFrameIndex,
+      addFrame,
+      duplicateFrame,
+      deleteFrame,
+      goToFrame,
+      nextFrame,
+      prevFrame,
       hasClipboard,
       selectAll,
       deselect,
@@ -485,6 +545,12 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       blurImage,
       colorCycleActive,
       toggleColorCycle,
+      addFrame,
+      duplicateFrame,
+      deleteFrame,
+      goToFrame,
+      nextFrame,
+      prevFrame,
       hasClipboard,
       selectAll,
       deselect,
@@ -526,6 +592,9 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     bus.on(COMMAND.COPY, () => copySelection());
     bus.on(COMMAND.CUTTOLAYER, () => cutSelection());
     bus.on(COMMAND.PASTE, () => paste());
+    bus.on(COMMAND.ADDFRAME, () => addFrame());
+    bus.on(COMMAND.DELETEFRAME, () => deleteFrame());
+    bus.on(COMMAND.DUPLICATEFRAME, () => duplicateFrame());
   }
 
   return <EditorContext.Provider value={api}>{children}</EditorContext.Provider>;

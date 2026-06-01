@@ -178,6 +178,68 @@ describe("ImageDocument layers", () => {
   });
 });
 
+describe("ImageDocument transforms", () => {
+  it("flipHorizontal mirrors pixels left-to-right across all layers", () => {
+    const doc = newDoc(4, 1);
+    doc.setPixel(0, 0, [1, 1, 1]);
+    doc.setPixel(3, 0, [2, 2, 2]);
+    doc.flipHorizontal();
+    expect(doc.getPixel(3, 0)).toEqual([1, 1, 1, 255]);
+    expect(doc.getPixel(0, 0)).toEqual([2, 2, 2, 255]);
+  });
+
+  it("flipHorizontal is its own inverse", () => {
+    const doc = newDoc(4, 4);
+    doc.setPixel(1, 2, [7, 8, 9]);
+    doc.flipHorizontal();
+    doc.flipHorizontal();
+    expect(doc.getPixel(1, 2)).toEqual([7, 8, 9, 255]);
+  });
+
+  it("flipVertical mirrors pixels top-to-bottom", () => {
+    const doc = newDoc(1, 4);
+    doc.setPixel(0, 0, [1, 1, 1]);
+    doc.setPixel(0, 3, [2, 2, 2]);
+    doc.flipVertical();
+    expect(doc.getPixel(0, 3)).toEqual([1, 1, 1, 255]);
+    expect(doc.getPixel(0, 0)).toEqual([2, 2, 2, 255]);
+  });
+
+  it("flips affect every layer", () => {
+    const doc = newDoc(2, 1);
+    doc.setPixel(0, 0, [5, 5, 5]);
+    doc.addLayer();
+    doc.setPixel(0, 0, [6, 6, 6]);
+    doc.flipHorizontal();
+    expect(doc.getPixel(1, 0, doc.layers[0]!)).toEqual([5, 5, 5, 255]);
+    expect(doc.getPixel(1, 0, doc.layers[1]!)).toEqual([6, 6, 6, 255]);
+  });
+});
+
+describe("ImageDocument colour effects", () => {
+  it("invertColors inverts RGB and preserves alpha", () => {
+    const doc = newDoc(1, 1);
+    doc.setPixel(0, 0, [10, 20, 30, 200]);
+    doc.invertColors();
+    expect(doc.getPixel(0, 0)).toEqual([245, 235, 225, 200]);
+  });
+
+  it("invert is its own inverse", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [12, 34, 56]);
+    doc.invertColors();
+    doc.invertColors();
+    expect(doc.getPixel(0, 0)).toEqual([12, 34, 56, 255]);
+  });
+
+  it("grayscale produces equal channels via luma", () => {
+    const doc = newDoc(1, 1);
+    doc.setPixel(0, 0, [255, 0, 0]); // luma = round(0.299*255) = 76
+    doc.grayscale();
+    expect(doc.getPixel(0, 0)).toEqual([76, 76, 76, 255]);
+  });
+});
+
 describe("ImageDocument snapshot / restore", () => {
   it("restores pixel data after further edits", () => {
     const doc = newDoc(4, 4);

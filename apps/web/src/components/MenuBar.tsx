@@ -4,7 +4,8 @@ import { useEditor } from "../state/EditorContext";
 
 /** Top menu bar wired to the legacy COMMAND event bus. */
 export function MenuBar() {
-  const { bus, newImage, zoom, setZoom, canUndo, canRedo, serialize, loadProject } = useEditor();
+  const { bus, newImage, zoom, setZoom, canUndo, canRedo, serialize, loadProject, invert, grayscale } =
+    useEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
@@ -82,6 +83,29 @@ export function MenuBar() {
         onClick={() => bus.trigger(COMMAND.REDO)}
       >
         Redo
+      </button>
+      <span className="menu-sep" aria-hidden="true" />
+      <button
+        type="button"
+        data-testid="menu-fliph"
+        title="Flip horizontal"
+        onClick={() => bus.trigger(COMMAND.FLIPHORIZONTAL)}
+      >
+        Flip H
+      </button>
+      <button
+        type="button"
+        data-testid="menu-flipv"
+        title="Flip vertical"
+        onClick={() => bus.trigger(COMMAND.FLIPVERTICAL)}
+      >
+        Flip V
+      </button>
+      <button type="button" data-testid="menu-invert" onClick={invert}>
+        Invert
+      </button>
+      <button type="button" data-testid="menu-grayscale" onClick={grayscale}>
+        Greyscale
       </button>
       <span className="spacer" />
       <button

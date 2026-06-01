@@ -47,6 +47,12 @@ export interface EditorApi {
   serialize: () => string;
   /** Replace the document with one parsed from a JSON project string. */
   loadProject: (json: string) => void;
+
+  /** Image transforms (all layers) and layer effects, each an undo checkpoint. */
+  flipHorizontal: () => void;
+  flipVertical: () => void;
+  invert: () => void;
+  grayscale: () => void;
 }
 
 const EditorContext = createContext<EditorApi | null>(null);
@@ -100,6 +106,26 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     [commit],
   );
 
+  const flipHorizontal = useCallback(() => {
+    docRef.current.flipHorizontal();
+    checkpoint();
+  }, [checkpoint]);
+
+  const flipVertical = useCallback(() => {
+    docRef.current.flipVertical();
+    checkpoint();
+  }, [checkpoint]);
+
+  const invert = useCallback(() => {
+    docRef.current.invertColors();
+    checkpoint();
+  }, [checkpoint]);
+
+  const grayscale = useCallback(() => {
+    docRef.current.grayscale();
+    checkpoint();
+  }, [checkpoint]);
+
   const serialize = useCallback(() => serializeToString(docRef.current), []);
 
   const loadProject = useCallback(
@@ -139,6 +165,10 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       canRedo: historyRef.current.canRedo,
       serialize,
       loadProject,
+      flipHorizontal,
+      flipVertical,
+      invert,
+      grayscale,
     }),
     [
       version,
@@ -154,6 +184,10 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       redo,
       serialize,
       loadProject,
+      flipHorizontal,
+      flipVertical,
+      invert,
+      grayscale,
     ],
   );
 
@@ -176,6 +210,8 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     });
     bus.on(COMMAND.UNDO, () => undo());
     bus.on(COMMAND.REDO, () => redo());
+    bus.on(COMMAND.FLIPHORIZONTAL, () => flipHorizontal());
+    bus.on(COMMAND.FLIPVERTICAL, () => flipVertical());
   }
 
   return <EditorContext.Provider value={api}>{children}</EditorContext.Provider>;

@@ -314,6 +314,61 @@ export class ImageDocument {
     layer.data.fill(0);
   }
 
+  /** Flip every layer horizontally (mirror left↔right), preserving dimensions. */
+  flipHorizontal(): void {
+    for (const layer of this.layers) {
+      const src = layer.data;
+      const out = new Uint8ClampedArray(src.length);
+      for (let y = 0; y < this.height; y++) {
+        for (let x = 0; x < this.width; x++) {
+          const from = (y * this.width + x) * 4;
+          const to = (y * this.width + (this.width - 1 - x)) * 4;
+          out[to] = src[from]!;
+          out[to + 1] = src[from + 1]!;
+          out[to + 2] = src[from + 2]!;
+          out[to + 3] = src[from + 3]!;
+        }
+      }
+      layer.data = out;
+    }
+  }
+
+  /** Flip every layer vertically (mirror top↔bottom), preserving dimensions. */
+  flipVertical(): void {
+    const rowBytes = this.width * 4;
+    for (const layer of this.layers) {
+      const src = layer.data;
+      const out = new Uint8ClampedArray(src.length);
+      for (let y = 0; y < this.height; y++) {
+        const srcRow = y * rowBytes;
+        const dstRow = (this.height - 1 - y) * rowBytes;
+        out.set(src.subarray(srcRow, srcRow + rowBytes), dstRow);
+      }
+      layer.data = out;
+    }
+  }
+
+  /** Invert the RGB channels of a layer (alpha preserved). */
+  invertColors(layer: Layer = this.activeLayer): void {
+    const d = layer.data;
+    for (let i = 0; i < d.length; i += 4) {
+      d[i] = 255 - d[i]!;
+      d[i + 1] = 255 - d[i + 1]!;
+      d[i + 2] = 255 - d[i + 2]!;
+    }
+  }
+
+  /** Convert a layer to greyscale using Rec. 601 luma (alpha preserved). */
+  grayscale(layer: Layer = this.activeLayer): void {
+    const d = layer.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const luma = Math.round(0.299 * d[i]! + 0.587 * d[i + 1]! + 0.114 * d[i + 2]!);
+      d[i] = luma;
+      d[i + 1] = luma;
+      d[i + 2] = luma;
+    }
+  }
+
   /** Flatten all visible layers (alpha-over) into a single RGBA buffer. */
   composite(): Uint8ClampedArray {
     const out = new Uint8ClampedArray(this.width * this.height * 4);

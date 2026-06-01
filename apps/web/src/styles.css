@@ -52,6 +52,13 @@ body {
   flex: 1;
 }
 
+.menu-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--border);
+}
+
 .menubar button,
 .layer-add {
   background: var(--panel-2);

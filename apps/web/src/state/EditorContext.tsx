@@ -171,6 +171,8 @@ export interface EditorApi {
   toggleGrid: () => void;
   showRulers: boolean;
   toggleRulers: () => void;
+  showBitplanes: boolean;
+  toggleBitplanes: () => void;
   setPaletteColor: (index: number, color: ColorArray) => void;
   addPaletteColor: (color: ColorArray) => void;
   removePaletteColor: (index: number) => void;
@@ -216,6 +218,7 @@ export function EditorProvider({ width = 64, height = 48, autoRestore = false, c
   const [colorCycleActive, setColorCycleActive] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [showRulers, setShowRulers] = useState(false);
+  const [showBitplanes, setShowBitplanes] = useState(false);
   const [hasClipboard, setHasClipboard] = useState(false);
   const clipboardRef = useRef<PixelRegion | null>(null);
   const cycleRef = useRef<{
@@ -336,6 +339,7 @@ export function EditorProvider({ width = 64, height = 48, autoRestore = false, c
 
   const toggleGrid = useCallback(() => setShowGrid((v) => !v), []);
   const toggleRulers = useCallback(() => setShowRulers((v) => !v), []);
+  const toggleBitplanes = useCallback(() => setShowBitplanes((v) => !v), []);
 
   const setPaletteColor = useCallback(
     (index: number, color: ColorArray) => {
@@ -824,6 +828,8 @@ export function EditorProvider({ width = 64, height = 48, autoRestore = false, c
       toggleGrid,
       showRulers,
       toggleRulers,
+      showBitplanes,
+      toggleBitplanes,
       setPaletteColor,
       addPaletteColor,
       removePaletteColor,
@@ -893,6 +899,8 @@ export function EditorProvider({ width = 64, height = 48, autoRestore = false, c
       toggleGrid,
       showRulers,
       toggleRulers,
+      showBitplanes,
+      toggleBitplanes,
       setPaletteColor,
       addPaletteColor,
       removePaletteColor,
@@ -929,6 +937,7 @@ export function EditorProvider({ width = 64, height = 48, autoRestore = false, c
     bus.on(COMMAND.TOGGLEGRID, () => toggleGrid());
     bus.on(COMMAND.TOGGLEPIXELGRID, () => toggleGrid());
     bus.on(COMMAND.TOGGLERULERS, () => toggleRulers());
+    bus.on(COMMAND.VIEWPLANES, () => toggleBitplanes());
     bus.on(COMMAND.CYCLEPALETTE, () => toggleColorCycle());
     bus.on(COMMAND.SELECTALL, () => selectAll());
     bus.on(COMMAND.CLEARSELECTION, () => deselect());

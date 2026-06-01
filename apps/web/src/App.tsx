@@ -5,6 +5,7 @@ import { Palette } from "./components/Palette";
 import { CanvasView } from "./components/CanvasView";
 import { LayerPanel } from "./components/LayerPanel";
 import { FramesPanel } from "./components/FramesPanel";
+import { BitplanesPanel } from "./components/BitplanesPanel";
 import { StatusBar } from "./components/StatusBar";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useHostBridge } from "./hooks/useHostBridge";
@@ -24,6 +25,7 @@ function Workspace() {
           <Palette />
           <LayerPanel />
           <FramesPanel />
+          <BitplanesPanel />
         </aside>
       </div>
       <StatusBar />

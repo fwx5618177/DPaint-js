@@ -6,7 +6,9 @@ import { useEditor } from "../state/EditorContext";
 export function MenuBar() {
   const {
     bus,
+    doc,
     newImage,
+    resize,
     scale,
     resampleScale,
     rotate,
@@ -53,6 +55,8 @@ export function MenuBar() {
     toggleGrid,
     showRulers,
     toggleRulers,
+    showBitplanes,
+    toggleBitplanes,
   } = useEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -336,6 +340,21 @@ export function MenuBar() {
       </button>
       <button
         type="button"
+        data-testid="menu-resize"
+        title="Resize to specific dimensions"
+        onClick={() => {
+          const v =
+            typeof window !== "undefined"
+              ? window.prompt("Resize to WIDTHxHEIGHT:", `${doc.width}x${doc.height}`)
+              : null;
+          const m = v?.match(/(\d+)\s*[x,×]\s*(\d+)/);
+          if (m) resize(Number(m[1]), Number(m[2]));
+        }}
+      >
+        Resize…
+      </button>
+      <button
+        type="button"
         data-testid="menu-rotate-left"
         title="Rotate 90° counter-clockwise"
         onClick={() => rotate(true)}
@@ -410,6 +429,16 @@ export function MenuBar() {
         onClick={toggleRulers}
       >
         Rulers
+      </button>
+      <button
+        type="button"
+        data-testid="menu-bitplanes"
+        className={showBitplanes ? "active" : ""}
+        aria-pressed={showBitplanes}
+        title="Toggle bit-planes view"
+        onClick={toggleBitplanes}
+      >
+        Planes
       </button>
       <span className="spacer" />
       <button

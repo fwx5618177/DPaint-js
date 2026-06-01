@@ -26,6 +26,9 @@ importers:
       '@dpaint/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@dpaint/fileformats':
+        specifier: workspace:*
+        version: link:../../packages/fileformats
       '@dpaint/util':
         specifier: workspace:*
         version: link:../../packages/util

@@ -4,25 +4,50 @@ import { useEditor } from "../state/EditorContext";
 
 /** Top menu bar wired to the legacy COMMAND event bus. */
 export function MenuBar() {
-  const { bus, newImage, zoom, setZoom, canUndo, canRedo, serialize, loadProject, invert, grayscale } =
-    useEditor();
+  const {
+    bus,
+    newImage,
+    zoom,
+    setZoom,
+    canUndo,
+    canRedo,
+    serialize,
+    loadProject,
+    exportPNG,
+    loadImageBytes,
+    invert,
+    grayscale,
+  } = useEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSave = () => {
-    const blob = new Blob([serialize()], { type: "application/json" });
+  const download = (bytes: BlobPart, filename: string, mime: string) => {
+    const blob = new Blob([bytes], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "untitled.dpaint.json";
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  const handleSave = () => download(serialize(), "untitled.dpaint.json", "application/json");
+
+  const handleExportPNG = async () => {
+    const png = await exportPNG();
+    download(png as unknown as BlobPart, "untitled.png", "image/png");
+  };
+
   const handleLoadFile = async (file: File) => {
     try {
-      loadProject(await file.text());
+      const isPng = file.name.toLowerCase().endsWith(".png") || file.type === "image/png";
+      if (isPng) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        await loadImageBytes(bytes, file.name);
+      } else {
+        loadProject(await file.text());
+      }
     } catch (err) {
-      console.error("Failed to load project", err);
+      console.error("Failed to load file", err);
     }
   };
 
@@ -35,6 +60,9 @@ export function MenuBar() {
       <button type="button" data-testid="menu-save" onClick={handleSave}>
         Save
       </button>
+      <button type="button" data-testid="menu-export-png" onClick={() => void handleExportPNG()}>
+        PNG
+      </button>
       <button
         type="button"
         data-testid="menu-load"
@@ -45,7 +73,7 @@ export function MenuBar() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,application/json"
+        accept=".json,application/json,.png,image/png"
         data-testid="file-input"
         style={{ display: "none" }}
         onChange={(e) => {

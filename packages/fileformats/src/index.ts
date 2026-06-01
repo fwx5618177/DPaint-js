@@ -3,3 +3,7 @@ export * as PackBits from "./byteRun1.js";
 export { detectFormat, default as FileDetector } from "./detect.js";
 export type { FileFormat } from "./detect.js";
 export type { ByteSource, DecodeResult, ValidateResult } from "./byteRun1.js";
+
+export { deflate, inflate } from "./zlib.js";
+export { encodePNG, decodePNG, default as PNG } from "./png.js";
+export type { RasterImage, DecodedPNG } from "./png.js";

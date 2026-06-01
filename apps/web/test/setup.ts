@@ -23,6 +23,16 @@ if (!Blob.prototype.text) {
     });
   };
 }
+if (!Blob.prototype.arrayBuffer) {
+  Blob.prototype.arrayBuffer = function (this: Blob): Promise<ArrayBuffer> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(this);
+    });
+  };
+}
 
 // jsdom does not implement PointerEvent. Without it, dispatched pointer events
 // drop clientX/clientY. Polyfill it as a MouseEvent subclass so coordinate data

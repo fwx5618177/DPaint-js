@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@dpaint/core": "workspace:*",
+    "@dpaint/fileformats": "workspace:*",
     "@dpaint/util": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

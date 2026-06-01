@@ -51,6 +51,22 @@ export class ImageDocument {
     this.layers = [this.createLayer("Layer 1")];
   }
 
+  /** Build a single-layer document from a raw RGBA pixel buffer. */
+  static fromRGBA(
+    width: number,
+    height: number,
+    data: Uint8Array | Uint8ClampedArray,
+    palette?: ColorArray[],
+  ): ImageDocument {
+    const doc = new ImageDocument({ width, height, palette });
+    const expected = width * height * 4;
+    if (data.length !== expected) {
+      throw new Error(`RGBA buffer is ${data.length} bytes, expected ${expected}`);
+    }
+    doc.layers[0]!.data = new Uint8ClampedArray(data);
+    return doc;
+  }
+
   static defaultPalette(): ColorArray[] {
     return [
       [0, 0, 0],

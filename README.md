@@ -112,10 +112,12 @@ Ported to TypeScript with tests:
 - [x] event bus, command/event enums, user settings (`@dpaint/core`)
 - [x] colour maths, CRC-32, binary stream, text utils (`@dpaint/util`)
 - [x] ByteRun1/PackBits codec, file-format detection (`@dpaint/fileformats`)
-- [x] raster document, layers, drawing tools, undo/redo, save/load (`@dpaint/web`)
+- [x] zlib (deflate/inflate) + PNG encode/decode (`@dpaint/fileformats`)
+- [x] raster document, layers, drawing tools, transforms/effects, undo/redo (`@dpaint/web`)
+- [x] PNG + JSON-project import/export in the app
 
 Still living only in `legacy/` (to be ported next):
-- [ ] full IFF / PNG / PSD / GIF read-write parsers
+- [ ] IFF / PSD / GIF read-write parsers
 - [ ] `imageProcessing` + colour quantizers
 - [ ] `alchemy` effects/filters
 - [ ] advanced UI panels (dither, colour-cycling, ADF browser, gallery, Amiga emulator)

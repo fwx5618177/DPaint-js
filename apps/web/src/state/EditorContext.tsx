@@ -9,6 +9,7 @@ import {
 } from "react";
 import { COMMAND, createEventBus, type EventBus } from "@dpaint/core";
 import type { ColorArray } from "@dpaint/util";
+import { detectFormat, encodePNG, decodePNG } from "@dpaint/fileformats";
 import { ImageDocument, type DocumentSnapshot } from "../model/ImageDocument";
 import { History } from "../model/History";
 import { serializeToString, deserializeFromString } from "../model/serialization";
@@ -47,6 +48,10 @@ export interface EditorApi {
   serialize: () => string;
   /** Replace the document with one parsed from a JSON project string. */
   loadProject: (json: string) => void;
+  /** Encode the flattened document as PNG bytes. */
+  exportPNG: () => Promise<Uint8Array>;
+  /** Load an image file (currently PNG) into a new document. Returns true on success. */
+  loadImageBytes: (bytes: Uint8Array, name?: string) => Promise<boolean>;
 
   /** Image transforms (all layers) and layer effects, each an undo checkpoint. */
   flipHorizontal: () => void;
@@ -137,6 +142,23 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     [commit],
   );
 
+  const exportPNG = useCallback(() => {
+    const doc = docRef.current;
+    return encodePNG({ width: doc.width, height: doc.height, data: doc.composite() });
+  }, []);
+
+  const loadImageBytes = useCallback(
+    async (bytes: Uint8Array, name = "") => {
+      if (detectFormat(bytes, name) !== "PNG") return false;
+      const { width, height, data } = await decodePNG(bytes);
+      docRef.current = ImageDocument.fromRGBA(width, height, data);
+      historyRef.current.reset(docRef.current.snapshot());
+      commit();
+      return true;
+    },
+    [commit],
+  );
+
   const swapColors = useCallback(() => {
     setColor(bgColor);
     setBgColor(color);
@@ -165,6 +187,8 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       canRedo: historyRef.current.canRedo,
       serialize,
       loadProject,
+      exportPNG,
+      loadImageBytes,
       flipHorizontal,
       flipVertical,
       invert,
@@ -184,6 +208,8 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       redo,
       serialize,
       loadProject,
+      exportPNG,
+      loadImageBytes,
       flipHorizontal,
       flipVertical,
       invert,

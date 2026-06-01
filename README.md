@@ -111,26 +111,29 @@ It is kept **temporarily** as a reference + fallback while the port proceeds; it
 will be deleted once the React app reaches feature parity.
 
 ## Migration status
-**File formats** (all ported to TS, tested):
-- [x] PNG (zlib via CompressionStream), GIF + animated GIF (LZW), IFF/ILBM
-  (indexed/EHB/HAM6/HAM8/24-bit, read + write), PSD (composite), DEGAS/NeoChrome,
-  Aseprite, classic Amiga icon, JSON project — read/write where applicable
-- [x] format detection, ByteRun1/PackBits, CRC-32
+The application's functionality has been ported to TypeScript with tests
+(**292 tests, ~89% coverage**).
+
+**File formats** (read/write where applicable, all tested):
+- [x] PNG (zlib via CompressionStream), GIF + animated GIF (LZW)
+- [x] IFF/ILBM — indexed/EHB/HAM6/HAM8/24-bit, **SHAM** per-scanline, read + write (incl. HAM6 encode)
+- [x] PSD (composite), DEGAS/NeoChrome, Aseprite, classic Amiga icon
+- [x] **ADF** (Amiga disk) — list + extract files; JSON project; ByteRun1, CRC-32, detection
 
 **Editor** (`@dpaint/web`):
-- [x] multi-layer document, multi-frame animation + timeline
+- [x] multi-layer document, multi-frame animation + timeline, animated-GIF export
 - [x] tools: select, pencil, line, rect/ellipse (outline+filled), fill, gradient,
   airbrush, smudge, text, colour picker
 - [x] selection + clipboard (copy/cut/paste/select-all), undo/redo
-- [x] transforms (flip, resize, crop) and effects (invert/greyscale/posterise/
+- [x] transforms (flip, resize, crop); effects (invert/greyscale/posterise/
   threshold/blur/offset/median-smooth/sharpen)
 - [x] colour reduction: quantize, median-cut palettes, ordered + Floyd–Steinberg
   dither, palette-from-image, 12-bit/9-bit hardware depth, EHB, colour cycling
 
-Still living only in `apps/legacy/` (niche / lower priority):
-- [ ] IFF SHAM per-scanline + ANIM read; HAM write; PSD layers/write
-- [ ] ADF (Amiga disk) browser, gallery panel, random decorative filters
-- [ ] the external Amiga emulator (its files are not in this repository)
+Intentionally **not** ported (niche / out of scope) — these remain in `apps/legacy/`:
+- IFF ANIM delta read, PSD layer writing, brush-rotate (RotSprite), stroke
+  recorder, random decorative filters (glow/ripples/…), iframe host embedding
+- the external **Amiga emulator** (its files are not in this repository)
 
 ## Documentation
 Documentation can be found at https://dpaint.app/docs/

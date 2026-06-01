@@ -9,7 +9,14 @@ import {
 } from "react";
 import { COMMAND, createEventBus, type EventBus } from "@dpaint/core";
 import type { ColorArray } from "@dpaint/util";
-import { detectFormat, encodePNG, decodePNG, decodeGIF, encodeGIF } from "@dpaint/fileformats";
+import {
+  detectFormat,
+  encodePNG,
+  decodePNG,
+  decodeGIF,
+  encodeGIF,
+  decodeILBM,
+} from "@dpaint/fileformats";
 import {
   buildPaletteFromImage,
   quantizeToPalette,
@@ -189,15 +196,20 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     async (bytes: Uint8Array, name = "") => {
       const format = detectFormat(bytes, name);
       let image: { width: number; height: number; data: Uint8Array | Uint8ClampedArray } | null = null;
+      let palette: ColorArray[] | undefined;
       if (format === "PNG") {
         image = await decodePNG(bytes);
       } else if (format === "GIF") {
         const gif = decodeGIF(bytes);
         const frame = gif.frames[0];
         if (frame) image = { width: gif.width, height: gif.height, data: frame.data };
+      } else if (format === "ILBM") {
+        const ilbm = decodeILBM(bytes);
+        image = { width: ilbm.width, height: ilbm.height, data: ilbm.data };
+        if (ilbm.palette.length) palette = ilbm.palette;
       }
       if (!image) return false;
-      docRef.current = ImageDocument.fromRGBA(image.width, image.height, image.data);
+      docRef.current = ImageDocument.fromRGBA(image.width, image.height, image.data, palette);
       historyRef.current.reset(docRef.current.snapshot());
       commit();
       return true;

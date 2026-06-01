@@ -50,6 +50,9 @@ export function MenuBar() {
       const isImage =
         name.endsWith(".png") ||
         name.endsWith(".gif") ||
+        name.endsWith(".iff") ||
+        name.endsWith(".ilbm") ||
+        name.endsWith(".lbm") ||
         file.type === "image/png" ||
         file.type === "image/gif";
       if (isImage) {
@@ -88,7 +91,7 @@ export function MenuBar() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,application/json,.png,image/png,.gif,image/gif"
+        accept=".json,application/json,.png,image/png,.gif,image/gif,.iff,.ilbm,.lbm"
         data-testid="file-input"
         style={{ display: "none" }}
         onChange={(e) => {

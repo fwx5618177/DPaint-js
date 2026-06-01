@@ -24,6 +24,25 @@ describe("Image transforms & effects menu", () => {
     expect(screen.getByTestId("menu-undo")).toBeEnabled();
   });
 
+  it("exposes colour-depth + alchemy filters that run undoably", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    for (const id of [
+      "menu-depth-12",
+      "menu-depth-9",
+      "menu-offset",
+      "menu-smooth",
+      "menu-sharpen",
+    ]) {
+      expect(screen.getByTestId(id)).toBeInTheDocument();
+    }
+    await user.click(screen.getByTestId("menu-offset"));
+    await user.click(screen.getByTestId("menu-smooth"));
+    await user.click(screen.getByTestId("menu-sharpen"));
+    await user.click(screen.getByTestId("menu-depth-12"));
+    expect(screen.getByTestId("menu-undo")).toBeEnabled();
+  });
+
   it("a flip creates an undoable checkpoint", async () => {
     const user = userEvent.setup();
     render(<App />);

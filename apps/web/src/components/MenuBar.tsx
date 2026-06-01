@@ -24,6 +24,9 @@ export function MenuBar() {
     thresholdImage,
     blurImage,
     reduceToDepth,
+    offsetImage,
+    medianSmooth,
+    sharpenImage,
     colorCycleActive,
     toggleColorCycle,
     hasClipboard,
@@ -214,6 +217,15 @@ export function MenuBar() {
         onClick={() => reduceToDepth(3)}
       >
         9-bit
+      </button>
+      <button type="button" data-testid="menu-offset" onClick={offsetImage}>
+        Offset
+      </button>
+      <button type="button" data-testid="menu-smooth" onClick={medianSmooth}>
+        Smooth
+      </button>
+      <button type="button" data-testid="menu-sharpen" onClick={sharpenImage}>
+        Sharpen
       </button>
       <span className="menu-sep" aria-hidden="true" />
       <button

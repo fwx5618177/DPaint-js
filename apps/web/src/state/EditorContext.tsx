@@ -36,6 +36,9 @@ import {
   cyclePalette,
   reduceColorDepth,
   reducePalette,
+  offset,
+  medianFilter,
+  sharpen,
   type ColorRange,
   type ColorDepth,
 } from "@dpaint/imaging";
@@ -104,6 +107,10 @@ export interface EditorApi {
   blurImage: () => void;
   /** Limit colours to an Amiga/Atari hardware depth (4 = 12-bit, 3 = 9-bit). */
   reduceToDepth: (depth: ColorDepth) => void;
+  /** Artistic filters on the active layer. */
+  offsetImage: () => void;
+  medianSmooth: () => void;
+  sharpenImage: () => void;
 
   /** Amiga-style colour cycling (non-destructive animated preview). */
   colorCycleActive: boolean;
@@ -388,6 +395,27 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     [checkpoint],
   );
 
+  const offsetImage = useCallback(() => {
+    const doc = docRef.current;
+    const layer = doc.activeLayer;
+    layer.data.set(offset(layer.data, doc.width, doc.height, doc.width >> 1, doc.height >> 1));
+    checkpoint();
+  }, [checkpoint]);
+
+  const medianSmooth = useCallback(() => {
+    const doc = docRef.current;
+    const layer = doc.activeLayer;
+    layer.data.set(medianFilter(layer.data, doc.width, doc.height, 1));
+    checkpoint();
+  }, [checkpoint]);
+
+  const sharpenImage = useCallback(() => {
+    const doc = docRef.current;
+    const layer = doc.activeLayer;
+    layer.data.set(sharpen(layer.data, doc.width, doc.height));
+    checkpoint();
+  }, [checkpoint]);
+
   const stopColorCycle = useCallback(() => {
     const session = cycleRef.current;
     if (!session) return;
@@ -513,6 +541,9 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       thresholdImage,
       blurImage,
       reduceToDepth,
+      offsetImage,
+      medianSmooth,
+      sharpenImage,
       colorCycleActive,
       toggleColorCycle,
       frameCount: docRef.current.frameCount,
@@ -560,6 +591,9 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       thresholdImage,
       blurImage,
       reduceToDepth,
+      offsetImage,
+      medianSmooth,
+      sharpenImage,
       colorCycleActive,
       toggleColorCycle,
       addFrame,

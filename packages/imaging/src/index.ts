@@ -25,3 +25,4 @@ export {
   extraHalfBrite,
   type ColorDepth,
 } from "./colordepth.js";
+export { offset, medianFilter, sharpen } from "./alchemy.js";

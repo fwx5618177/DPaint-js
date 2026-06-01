@@ -22,6 +22,7 @@ import {
   decodeDEGAS,
   decodeNeo,
   decodeAseprite,
+  decodeAmigaIcon,
 } from "@dpaint/fileformats";
 import {
   buildPaletteFromImage,
@@ -341,6 +342,9 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       } else if (format === "ASEPRITE") {
         const a = await decodeAseprite(bytes);
         image = { width: a.width, height: a.height, data: a.data };
+      } else if (format === "ICON") {
+        const i = decodeAmigaIcon(bytes);
+        image = { width: i.width, height: i.height, data: i.data };
       }
       if (!image) return false;
       docRef.current = ImageDocument.fromRGBA(image.width, image.height, image.data, palette);

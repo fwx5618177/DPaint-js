@@ -24,3 +24,6 @@ export type { DecodedDEGAS } from "./degas.js";
 
 export { decodeAseprite, default as Aseprite } from "./aseprite.js";
 export type { DecodedAseprite, AsepriteLayer } from "./aseprite.js";
+
+export { decodeAmigaIcon, default as AmigaIcon } from "./amigaIcon.js";
+export type { DecodedAmigaIcon, AmigaIconImage } from "./amigaIcon.js";

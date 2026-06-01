@@ -117,13 +117,14 @@ Ported to TypeScript with tests:
 - [x] LZW codec + GIF decode/encode (`@dpaint/fileformats`)
 - [x] colour quantization, median-cut palettes, ordered + Floyd–Steinberg dither (`@dpaint/imaging`)
 - [x] IFF/ILBM decoder + encoder — indexed planar, ByteRun1, EHB, HAM6/HAM8 (`@dpaint/fileformats`)
+- [x] PSD reader — merged composite, 8-bit grayscale/RGB, raw + RLE (`@dpaint/fileformats`)
+- [x] pure image effects: brightness/contrast/posterise/threshold/box-blur (`@dpaint/imaging`)
 - [x] raster document, layers, drawing tools, transforms/effects, undo/redo (`@dpaint/web`)
-- [x] PNG + GIF + IFF + JSON import; PNG + GIF + IFF + JSON export; palette-from-image + dither
+- [x] PNG + GIF + IFF + PSD + JSON import; PNG + GIF + IFF + JSON export; palette/dither/effects
 
 Still living only in `legacy/` (to be ported next):
-- [ ] IFF SHAM/24-bit/interlace read; PSD parser
-- [ ] `alchemy` effects/filters
-- [ ] advanced UI panels (colour-cycling, ADF browser, gallery, Amiga emulator)
+- [ ] IFF SHAM/24-bit/interlace read; PSD layers/write
+- [ ] advanced UI panels (colour-cycling animation, ADF browser, gallery, Amiga emulator)
 
 ## Documentation
 Documentation can be found at https://dpaint.app/docs/

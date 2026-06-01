@@ -15,3 +15,6 @@ export type { DecodedGIF, GifFrame, GifEncodeInput } from "./gif.js";
 
 export { decodeILBM, encodeILBM, default as IFF } from "./iff.js";
 export type { DecodedILBM, ILBMMode, ILBMEncodeInput } from "./iff.js";
+
+export { decodePSD, default as PSD } from "./psd.js";
+export type { DecodedPSD } from "./psd.js";

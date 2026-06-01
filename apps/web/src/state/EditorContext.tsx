@@ -17,6 +17,7 @@ import {
   encodeGIF,
   decodeILBM,
   encodeILBM,
+  decodePSD,
 } from "@dpaint/fileformats";
 import {
   buildPaletteFromImage,
@@ -244,6 +245,8 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
         const ilbm = decodeILBM(bytes);
         image = { width: ilbm.width, height: ilbm.height, data: ilbm.data };
         if (ilbm.palette.length) palette = ilbm.palette;
+      } else if (format === "PSD") {
+        image = decodePSD(bytes);
       }
       if (!image) return false;
       docRef.current = ImageDocument.fromRGBA(image.width, image.height, image.data, palette);

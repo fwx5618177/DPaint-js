@@ -61,6 +61,7 @@ export function MenuBar() {
         name.endsWith(".iff") ||
         name.endsWith(".ilbm") ||
         name.endsWith(".lbm") ||
+        name.endsWith(".psd") ||
         file.type === "image/png" ||
         file.type === "image/gif";
       if (isImage) {
@@ -102,7 +103,7 @@ export function MenuBar() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,application/json,.png,image/png,.gif,image/gif,.iff,.ilbm,.lbm"
+        accept=".json,application/json,.png,image/png,.gif,image/gif,.iff,.ilbm,.lbm,.psd"
         data-testid="file-input"
         style={{ display: "none" }}
         onChange={(e) => {

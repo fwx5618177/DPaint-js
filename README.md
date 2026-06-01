@@ -54,8 +54,15 @@ in `apps/web` as a React + Vite application.
 │   └── fileformats/  @dpaint/fileformats — ByteRun1/PackBits codec + format detection
 ├── apps/
 │   └── web/          @dpaint/web — React + TypeScript paint application (Vite)
-└── _script/          legacy plain-JS source (being ported package by package)
+└── legacy/           the original plain-JS app, quarantined as migration reference
+    ├── _script/      legacy ES6 source (being ported package by package)
+    ├── _style/ _img/ _font/ _data/   legacy assets
+    ├── tests/        the original Playwright end-to-end suite
+    └── index.html    legacy entry point
 ```
+
+The repository root now holds only workspace configuration plus the three
+top-level areas (`packages/`, `apps/`, `legacy/`).
 
 ### Prerequisites
 - Node.js ≥ 20
@@ -85,10 +92,17 @@ The migrated code currently ships **151 passing tests at ~87% coverage**.
 - Project save / load to a JSON `.dpaint.json` format
 - Keyboard shortcuts for tools, zoom, colour swap, and undo/redo
 
-### Legacy build
-The original zero-dependency ES6 app still lives at the repo root and can be
-served directly (`index.html`) or built with `pnpm legacy:build`. It needs no
-install step and runs out of the box in modern browsers.
+### Legacy app
+The original plain-JS app now lives under `legacy/` (`dpaint-legacy` workspace
+package). Run it with:
+
+| Command | Description |
+| --- | --- |
+| `pnpm legacy:start` | Serve the legacy app at http://localhost:8080 |
+| `pnpm legacy:build` | Build the legacy app to `legacy/dist` |
+| `pnpm legacy:test` | Run the original Playwright end-to-end suite |
+
+It is kept as a reference while the TypeScript port proceeds module by module.
 
 ## Documentation
 Documentation can be found at https://dpaint.app/docs/

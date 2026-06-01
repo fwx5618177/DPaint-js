@@ -11,9 +11,10 @@ coverage/
 .vitest/
 
 # legacy
-/scrap
-/gallery/
+legacy/gallery/
 .parcel-cache
+playwright-report/
+test-results/
 
 # editor / os
 .DS_Store

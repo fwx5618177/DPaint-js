@@ -19,9 +19,9 @@
     "coverage": "vitest run --coverage",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "pnpm -r --if-present lint",
-    "legacy:build": "vite build --base=./ --config vite.legacy.config.js",
-    "legacy:start": "npx http-server",
-    "legacy:test": "playwright test --config ./tests/playwright.config.js"
+    "legacy:build": "pnpm --filter dpaint-legacy build",
+    "legacy:start": "pnpm --filter dpaint-legacy start",
+    "legacy:test": "pnpm --filter dpaint-legacy test"
   },
   "devDependencies": {
     "@types/node": "^22",

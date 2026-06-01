@@ -38,9 +38,18 @@ export function decodeILBM(bytes: Uint8Array): DecodedILBM {
   let transparentColor = 0;
   let ehb = false;
   let ham = false;
+  let interlaced = false;
   let palette: ColorArray[] = [];
+  let shamPalettes: ColorArray[][] | null = null;
   let bodyStart = -1;
   let bodySize = 0;
+
+  const shamWordToRgb = (word: number): ColorArray => {
+    const r = (word >> 8) & 0xf;
+    const g = (word >> 4) & 0xf;
+    const b = word & 0xf;
+    return [(r << 4) | r, (g << 4) | g, (b << 4) | b];
+  };
 
   while (!file.isEOF()) {
     const name = file.readString(4);
@@ -69,6 +78,19 @@ export function decodeILBM(bytes: Uint8Array): DecodedILBM {
       const v = file.readUint();
       ehb = (v & 0x80) !== 0;
       ham = (v & 0x800) !== 0;
+      interlaced = (v & 0x4) !== 0;
+    } else if (name === "SHAM") {
+      // Sliced HAM: version word, then 16 colour words per scanline palette.
+      const version = file.readWord();
+      if (version === 0 && size >= 2) {
+        const paletteCount = Math.floor((size - 2) / 2 / 16);
+        shamPalettes = [];
+        for (let p = 0; p < paletteCount; p++) {
+          const pal: ColorArray[] = [];
+          for (let i = 0; i < 16; i++) pal.push(shamWordToRgb(file.readWord()));
+          shamPalettes.push(pal);
+        }
+      }
     } else if (name === "BODY") {
       bodyStart = file.index;
       bodySize = size;
@@ -127,6 +149,12 @@ export function decodeILBM(bytes: Uint8Array): DecodedILBM {
   for (let y = 0; y < height; y++) {
     const rowBase = y * planesPerRow * rowBytes;
     let prev: ColorArray = [0, 0, 0];
+    // SHAM provides a per-scanline base palette (halved row index when interlaced).
+    let rowPalette = palette;
+    if (shamPalettes && shamPalettes.length) {
+      const idx = Math.min(interlaced ? y >> 1 : y, shamPalettes.length - 1);
+      rowPalette = shamPalettes[idx]!;
+    }
     for (let x = 0; x < width; x++) {
       const byteIndex = x >> 3;
       const bit = 0x80 >> (x & 7);
@@ -145,7 +173,7 @@ export function decodeILBM(bytes: Uint8Array): DecodedILBM {
         const index = pixel & lowMask;
         const modifier = pixel >> colorPlanes;
         if (modifier === 0) {
-          color = (palette[index] ?? [0, 0, 0]).slice() as ColorArray;
+          color = (rowPalette[index] ?? [0, 0, 0]).slice() as ColorArray;
         } else {
           const value = (index << (8 - colorPlanes)) & 0xff;
           color = prev.slice() as ColorArray;

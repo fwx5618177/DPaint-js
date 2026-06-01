@@ -144,6 +144,65 @@ describe("24-bit true-colour ILBM round-trip", () => {
   });
 });
 
+describe("decodeILBM — SHAM per-scanline palette", () => {
+  it("uses a different base palette per row", () => {
+    // 2×2 HAM6 (6 planes), all pixels index 0 modifier 0 -> rowPalette[0]
+    const width = 2;
+    const height = 2;
+    const numPlanes = 6;
+    const rowBytes = ((width + 15) >> 4) << 1; // 2
+    const bodySize = rowBytes * numPlanes * height; // 24
+    const shamSize = 2 + 2 * 16 * 2; // version + 2 palettes * 16 words
+
+    const formContent = 4 + (8 + 20) + (8 + 4) + (8 + shamSize) + (8 + bodySize);
+    const f = new BinaryStream(new ArrayBuffer(8 + formContent), true);
+    f.writeString("FORM");
+    f.writeUint(formContent);
+    f.writeString("ILBM");
+
+    f.writeString("BMHD");
+    f.writeUint(20);
+    f.writeWord(width);
+    f.writeWord(height);
+    f.writeWord(0);
+    f.writeWord(0);
+    f.writeUbyte(numPlanes);
+    f.writeUbyte(0);
+    f.writeUbyte(0);
+    f.writeUbyte(0);
+    f.writeWord(0);
+    f.writeUbyte(1);
+    f.writeUbyte(1);
+    f.writeWord(width);
+    f.writeWord(height);
+
+    f.writeString("CAMG");
+    f.writeUint(4); // chunk size
+    f.writeUint(0x800); // HAM flag
+
+    f.writeString("SHAM");
+    f.writeUint(shamSize);
+    f.writeWord(0); // version
+    // row-0 palette: colour 0 = red (0x0F00 in 0RGB), rest 0
+    f.writeWord(0x0f00);
+    for (let i = 1; i < 16; i++) f.writeWord(0);
+    // row-1 palette: colour 0 = green (0x00F0)
+    f.writeWord(0x00f0);
+    for (let i = 1; i < 16; i++) f.writeWord(0);
+
+    f.writeString("BODY");
+    f.writeUint(bodySize);
+    for (let i = 0; i < bodySize; i++) f.writeUbyte(0); // all planes 0
+
+    const decoded = decodeILBM(new Uint8Array(f.buffer));
+    expect(decoded.mode).toBe("ham6");
+    // row 0 -> red, row 1 -> green (from per-scanline SHAM palettes)
+    expect([decoded.data[0], decoded.data[1], decoded.data[2]]).toEqual([255, 0, 0]);
+    const row1 = (1 * width + 0) * 4;
+    expect([decoded.data[row1], decoded.data[row1 + 1], decoded.data[row1 + 2]]).toEqual([0, 255, 0]);
+  });
+});
+
 describe("decodeILBM — real fixtures", () => {
   it("decodes the 320×256 SHAM ILBM to the right dimensions and buffer size", () => {
     const data = new Uint8Array(readFileSync(resolve(fixtures, "TEST_IMAGE_320x256_SHAM.iff")));

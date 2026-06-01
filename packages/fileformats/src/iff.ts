@@ -11,7 +11,7 @@
 import { BinaryStream, type ColorArray } from "@dpaint/util";
 import { decodeLine, type ByteSource } from "./byteRun1.js";
 
-export type ILBMMode = "indexed" | "ehb" | "ham6" | "ham8";
+export type ILBMMode = "indexed" | "ehb" | "ham6" | "ham8" | "truecolor";
 
 export interface DecodedILBM {
   width: number;
@@ -84,7 +84,10 @@ export function decodeILBM(bytes: Uint8Array): DecodedILBM {
   // Determine mode + extend the palette for EHB.
   let mode: ILBMMode = "indexed";
   let colorPlanes = numPlanes;
-  if (ham) {
+  const trueColor = !ham && numPlanes === 24;
+  if (trueColor) {
+    mode = "truecolor";
+  } else if (ham) {
     colorPlanes = numPlanes >= 7 ? 6 : 4;
     mode = numPlanes >= 7 ? "ham8" : "ham6";
   } else if (ehb) {
@@ -136,7 +139,9 @@ export function decodeILBM(bytes: Uint8Array): DecodedILBM {
 
       let color: ColorArray;
       let alpha = 255;
-      if (ham) {
+      if (trueColor) {
+        color = [pixel & 0xff, (pixel >> 8) & 0xff, (pixel >> 16) & 0xff];
+      } else if (ham) {
         const index = pixel & lowMask;
         const modifier = pixel >> colorPlanes;
         if (modifier === 0) {
@@ -249,5 +254,66 @@ export function encodeILBM(input: ILBMEncodeInput): Uint8Array {
   return new Uint8Array(f.buffer);
 }
 
-const IFF = { decodeILBM, encodeILBM };
+export interface ILBM24EncodeInput {
+  width: number;
+  height: number;
+  /** RGBA pixel buffer, width*height*4 (alpha ignored). */
+  data: Uint8Array | Uint8ClampedArray;
+}
+
+/**
+ * Encode a 24-bit true-colour ILBM (24 planes, no CMAP), uncompressed.
+ * Round-trips with {@link decodeILBM}.
+ */
+export function encodeTrueColorILBM(input: ILBM24EncodeInput): Uint8Array {
+  const { width, height, data } = input;
+  const numPlanes = 24;
+  const rowBytes = ((width + 15) >> 4) << 1;
+  const bodySize = rowBytes * numPlanes * height;
+
+  const formContent = 4 /* ILBM */ + (8 + 20) /* BMHD */ + (8 + bodySize);
+  const total = 8 + formContent;
+  const f = new BinaryStream(new ArrayBuffer(total), true);
+
+  f.writeString("FORM");
+  f.writeUint(formContent);
+  f.writeString("ILBM");
+
+  f.writeString("BMHD");
+  f.writeUint(20);
+  f.writeWord(width);
+  f.writeWord(height);
+  f.writeWord(0);
+  f.writeWord(0);
+  f.writeUbyte(numPlanes);
+  f.writeUbyte(0); // mask
+  f.writeUbyte(0); // compression: none
+  f.writeUbyte(0); // pad
+  f.writeWord(0);
+  f.writeUbyte(1);
+  f.writeUbyte(1);
+  f.writeWord(width);
+  f.writeWord(height);
+
+  f.writeString("BODY");
+  f.writeUint(bodySize);
+  const row = new Uint8Array(rowBytes * numPlanes);
+  for (let y = 0; y < height; y++) {
+    row.fill(0);
+    for (let x = 0; x < width; x++) {
+      const o = (y * width + x) * 4;
+      const value = data[o]! | (data[o + 1]! << 8) | (data[o + 2]! << 16);
+      const byteIndex = x >> 3;
+      const bit = 0x80 >> (x & 7);
+      for (let p = 0; p < numPlanes; p++) {
+        if (value & (1 << p)) row[p * rowBytes + byteIndex] |= bit;
+      }
+    }
+    f.writeByteArray(row);
+  }
+
+  return new Uint8Array(f.buffer);
+}
+
+const IFF = { decodeILBM, encodeILBM, encodeTrueColorILBM };
 export default IFF;

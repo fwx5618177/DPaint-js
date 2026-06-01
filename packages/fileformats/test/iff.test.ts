@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { BinaryStream, type ColorArray } from "@dpaint/util";
-import { decodeILBM, encodeILBM } from "../src/iff.js";
+import { decodeILBM, encodeILBM, encodeTrueColorILBM } from "../src/iff.js";
 import { detectFormat } from "../src/detect.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -121,6 +121,26 @@ describe("encodeILBM round-trip", () => {
       encodeILBM({ width: 1, height: 1, pixels: [0], palette: PALETTE }),
     );
     expect(decoded.palette).toEqual(PALETTE);
+  });
+});
+
+describe("24-bit true-colour ILBM round-trip", () => {
+  it("round-trips arbitrary RGB through encode → decode", () => {
+    const width = 11;
+    const height = 3;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < width * height; i++) {
+      const o = i * 4;
+      data[o] = (i * 7) % 256;
+      data[o + 1] = (i * 13) % 256;
+      data[o + 2] = (i * 29) % 256;
+      data[o + 3] = 255;
+    }
+    const decoded = decodeILBM(encodeTrueColorILBM({ width, height, data }));
+    expect(decoded.mode).toBe("truecolor");
+    expect(decoded.width).toBe(width);
+    expect(decoded.height).toBe(height);
+    expect(Array.from(decoded.data)).toEqual(Array.from(data));
   });
 });
 

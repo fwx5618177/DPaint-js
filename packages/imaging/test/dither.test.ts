@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { orderedDither, floydSteinberg, indicesToRGBA } from "../src/dither.js";
-import type { ColorArray } from "@dpaint/util";
+import type { ColorArray } from "@dpaint/primitives";
 
 const BW: ColorArray[] = [
   [0, 0, 0],

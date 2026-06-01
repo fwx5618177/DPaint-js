@@ -1,4 +1,4 @@
-import { Color, type ColorArray } from "@dpaint/util";
+import { Color, type ColorArray } from "@dpaint/primitives";
 
 /** Hardware colour depth presets. */
 export type ColorDepth = 8 | 4 | 3;

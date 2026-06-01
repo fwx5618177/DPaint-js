@@ -5,7 +5,7 @@ import {
   medianCut,
   buildPaletteFromImage,
 } from "../src/quantize.js";
-import type { ColorArray } from "@dpaint/util";
+import type { ColorArray } from "@dpaint/primitives";
 
 const PALETTE: ColorArray[] = [
   [0, 0, 0],

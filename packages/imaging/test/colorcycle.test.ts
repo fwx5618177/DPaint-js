@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { cyclePalette, type ColorRange } from "../src/colorcycle.js";
-import type { ColorArray } from "@dpaint/util";
+import type { ColorArray } from "@dpaint/primitives";
 
 const PALETTE: ColorArray[] = [
   [0, 0, 0], // A

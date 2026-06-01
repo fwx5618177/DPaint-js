@@ -49,10 +49,11 @@ in `apps/web` as a React + Vite application.
 ```
 .
 ├── packages/
-│   ├── core/         @dpaint/core — commands/events enums, typed EventBus, user settings
-│   ├── util/         @dpaint/util — colour maths, CRC32, BinaryStream, text helpers
-│   ├── fileformats/  @dpaint/fileformats — codecs (PNG, GIF, ByteRun1) + detection
-│   └── imaging/      @dpaint/imaging — quantization, median-cut palettes, dithering
+│   ├── runtime/      @dpaint/runtime — command/event vocabulary, typed event bus, settings
+│   ├── primitives/   @dpaint/primitives — colour maths, binary streams, CRC-32, text
+│   ├── codecs/       @dpaint/codecs — image-format encoders/decoders + detection
+│   ├── imaging/      @dpaint/imaging — quantization, median-cut palettes, dithering, effects
+│   └── document/     @dpaint/document — the editable image-document model + tools
 ├── apps/
 │   ├── web/          @dpaint/web — React + TypeScript paint application (Vite)
 │   └── legacy/       dpaint-legacy — the original plain-JS app (migration reference)

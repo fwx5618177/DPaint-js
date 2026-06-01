@@ -1,4 +1,4 @@
-import type { ColorArray } from "@dpaint/util";
+import type { ColorArray } from "@dpaint/primitives";
 
 /** Index of the palette entry closest to `rgb` (squared euclidean distance). */
 export function nearestColorIndex(rgb: ArrayLike<number>, palette: ColorArray[]): number {

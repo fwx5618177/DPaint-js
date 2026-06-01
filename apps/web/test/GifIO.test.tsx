@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { encodeGIF } from "@dpaint/fileformats";
-import type { ColorArray } from "@dpaint/util";
+import { encodeGIF } from "@dpaint/codecs";
+import type { ColorArray } from "@dpaint/primitives";
 import App from "../src/App";
 
 const PALETTE: ColorArray[] = [

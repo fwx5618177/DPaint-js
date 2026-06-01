@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EVENT } from "@dpaint/core";
+import { EVENT } from "@dpaint/runtime";
 import { useEditor } from "../state/EditorContext";
 import { renderTextRegion } from "../model/textRender";
 

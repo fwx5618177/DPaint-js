@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../src/App";
-import { ImageDocument } from "../src/model/ImageDocument";
-import { serializeToString } from "../src/model/serialization";
+import { ImageDocument } from "@dpaint/document";
+import { serializeToString } from "@dpaint/document";
 
 describe("Save project", () => {
   let created: Blob[] = [];

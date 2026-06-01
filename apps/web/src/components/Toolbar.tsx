@@ -1,5 +1,5 @@
 import { useEditor } from "../state/EditorContext";
-import { TOOLS } from "../model/tools";
+import { TOOLS } from "@dpaint/document";
 
 /** Tool selector column. */
 export function Toolbar() {

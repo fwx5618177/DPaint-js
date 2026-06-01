@@ -1,5 +1,5 @@
-import type { ColorArray } from "@dpaint/util";
-import type { PixelRegion } from "./ImageDocument";
+import type { ColorArray } from "@dpaint/primitives";
+import type { PixelRegion } from "@dpaint/document";
 
 /**
  * Rasterise a line of text into a detached RGBA region using an offscreen

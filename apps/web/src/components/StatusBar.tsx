@@ -1,4 +1,4 @@
-import { TOOLS_BY_ID } from "../model/tools";
+import { TOOLS_BY_ID } from "@dpaint/document";
 import { useEditor } from "../state/EditorContext";
 
 /** Bottom status bar: dimensions, layer count, active tool and colour usage. */

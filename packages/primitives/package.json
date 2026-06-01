@@ -1,0 +1,22 @@
+{
+  "name": "@dpaint/primitives",
+  "version": "0.3.0",
+  "description": "Framework-agnostic utilities for DPaint.js: colour maths, CRC32, binary streams, text helpers.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./color": "./src/color.ts",
+    "./crc32": "./src/crc32.ts",
+    "./binarystream": "./src/binarystream.ts",
+    "./text": "./src/textUtils.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}

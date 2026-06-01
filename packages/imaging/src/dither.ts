@@ -1,4 +1,4 @@
-import type { ColorArray } from "@dpaint/util";
+import type { ColorArray } from "@dpaint/primitives";
 import { nearestColorIndex } from "./quantize.js";
 
 /** Normalised 4×4 Bayer ordered-dither threshold matrix (values 0..1). */

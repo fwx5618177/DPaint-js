@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { decodeGIF } from "@dpaint/fileformats";
+import { decodeGIF } from "@dpaint/codecs";
 import App from "../src/App";
 
 function drawDot() {

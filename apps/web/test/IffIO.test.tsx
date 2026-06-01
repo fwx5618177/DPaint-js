@@ -4,14 +4,14 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { decodeILBM } from "@dpaint/fileformats";
+import { decodeILBM } from "@dpaint/codecs";
 import App from "../src/App";
 
 const here = dirname(fileURLToPath(import.meta.url));
 // reuse the fixtures bundled with the fileformats package
 const fixture = resolve(
   here,
-  "../../../packages/fileformats/test/fixtures/sham-16x4-ham6.ilbm",
+  "../../../packages/codecs/test/fixtures/sham-16x4-ham6.ilbm",
 );
 
 describe("IFF/ILBM import", () => {

@@ -1,4 +1,4 @@
-import type { ColorArray } from "@dpaint/util";
+import type { ColorArray } from "@dpaint/primitives";
 
 /** A contiguous palette range that animates (Amiga-style colour cycling). */
 export interface ColorRange {

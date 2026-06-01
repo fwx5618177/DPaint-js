@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { COMMAND } from "@dpaint/core";
+import { COMMAND } from "@dpaint/runtime";
 import { useEditor } from "../state/EditorContext";
 
 /** Top menu bar wired to the legacy COMMAND event bus. */

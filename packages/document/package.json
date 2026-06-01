@@ -1,7 +1,7 @@
 {
-  "name": "@dpaint/imaging",
+  "name": "@dpaint/document",
   "version": "0.3.0",
-  "description": "Colour reduction for DPaint.js: quantization, median-cut palettes and dithering.",
+  "description": "Framework-agnostic editable image-document model for DPaint.js: layers, frames, drawing primitives, selection, history and serialization.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

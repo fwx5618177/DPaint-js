@@ -5,7 +5,7 @@ import {
   reducePalette,
   extraHalfBrite,
 } from "../src/colordepth.js";
-import type { ColorArray } from "@dpaint/util";
+import type { ColorArray } from "@dpaint/primitives";
 
 describe("reduceColor", () => {
   it("is a no-op at full 8-bit depth", () => {

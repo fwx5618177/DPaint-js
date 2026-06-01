@@ -8,8 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { COMMAND, createEventBus, type EventBus } from "@dpaint/core";
-import type { ColorArray } from "@dpaint/util";
+import { COMMAND, createEventBus, type EventBus } from "@dpaint/runtime";
+import type { ColorArray } from "@dpaint/primitives";
 import {
   detectFormat,
   encodePNG,
@@ -25,7 +25,7 @@ import {
   decodeAseprite,
   decodeAmigaIcon,
   AdfDisk,
-} from "@dpaint/fileformats";
+} from "@dpaint/codecs";
 import {
   buildPaletteFromImage,
   quantizeToPalette,
@@ -48,10 +48,10 @@ import {
   type DocumentSnapshot,
   type Layer,
   type PixelRegion,
-} from "../model/ImageDocument";
-import { History } from "../model/History";
-import { serializeToString, deserializeFromString } from "../model/serialization";
-import type { ToolId } from "../model/tools";
+} from "@dpaint/document";
+import { History } from "@dpaint/document";
+import { serializeToString, deserializeFromString } from "@dpaint/document";
+import type { ToolId } from "@dpaint/document";
 
 export interface EditorApi {
   doc: ImageDocument;

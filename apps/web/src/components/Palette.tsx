@@ -1,4 +1,4 @@
-import { Color } from "@dpaint/util";
+import { Color } from "@dpaint/primitives";
 import { useEditor } from "../state/EditorContext";
 
 /** Colour palette + current fore/background swatches. */

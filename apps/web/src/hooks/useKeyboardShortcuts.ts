@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { COMMAND } from "@dpaint/core";
+import { COMMAND } from "@dpaint/runtime";
 import { useEditor } from "../state/EditorContext";
-import { TOOL_BY_SHORTCUT } from "../model/tools";
+import { TOOL_BY_SHORTCUT } from "@dpaint/document";
 
 /** Global keyboard shortcuts: tool selection plus a couple of bus commands. */
 export function useKeyboardShortcuts() {

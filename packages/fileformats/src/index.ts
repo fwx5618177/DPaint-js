@@ -7,3 +7,8 @@ export type { ByteSource, DecodeResult, ValidateResult } from "./byteRun1.js";
 export { deflate, inflate } from "./zlib.js";
 export { encodePNG, decodePNG, default as PNG } from "./png.js";
 export type { RasterImage, DecodedPNG } from "./png.js";
+
+export { default as LZW } from "./lzw.js";
+export * as LZWCodec from "./lzw.js";
+export { decodeGIF, encodeGIF, default as GIF } from "./gif.js";
+export type { DecodedGIF, GifFrame, GifEncodeInput } from "./gif.js";

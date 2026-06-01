@@ -39,8 +39,13 @@ export function MenuBar() {
 
   const handleLoadFile = async (file: File) => {
     try {
-      const isPng = file.name.toLowerCase().endsWith(".png") || file.type === "image/png";
-      if (isPng) {
+      const name = file.name.toLowerCase();
+      const isImage =
+        name.endsWith(".png") ||
+        name.endsWith(".gif") ||
+        file.type === "image/png" ||
+        file.type === "image/gif";
+      if (isImage) {
         const bytes = new Uint8Array(await file.arrayBuffer());
         await loadImageBytes(bytes, file.name);
       } else {
@@ -73,7 +78,7 @@ export function MenuBar() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,application/json,.png,image/png"
+        accept=".json,application/json,.png,image/png,.gif,image/gif"
         data-testid="file-input"
         style={{ display: "none" }}
         onChange={(e) => {

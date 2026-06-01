@@ -113,12 +113,13 @@ Ported to TypeScript with tests:
 - [x] colour maths, CRC-32, binary stream, text utils (`@dpaint/util`)
 - [x] ByteRun1/PackBits codec, file-format detection (`@dpaint/fileformats`)
 - [x] zlib (deflate/inflate) + PNG encode/decode (`@dpaint/fileformats`)
+- [x] LZW codec + GIF decode/encode (`@dpaint/fileformats`)
 - [x] raster document, layers, drawing tools, transforms/effects, undo/redo (`@dpaint/web`)
-- [x] PNG + JSON-project import/export in the app
+- [x] PNG + GIF + JSON-project import in the app; PNG + JSON export
 
 Still living only in `legacy/` (to be ported next):
-- [ ] IFF / PSD / GIF read-write parsers
-- [ ] `imageProcessing` + colour quantizers
+- [ ] IFF (ILBM/HAM/SHAM) and PSD parsers
+- [ ] `imageProcessing` + colour quantizers (and GIF export wiring)
 - [ ] `alchemy` effects/filters
 - [ ] advanced UI panels (dither, colour-cycling, ADF browser, gallery, Amiga emulator)
 

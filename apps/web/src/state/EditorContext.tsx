@@ -9,7 +9,7 @@ import {
 } from "react";
 import { COMMAND, createEventBus, type EventBus } from "@dpaint/core";
 import type { ColorArray } from "@dpaint/util";
-import { detectFormat, encodePNG, decodePNG } from "@dpaint/fileformats";
+import { detectFormat, encodePNG, decodePNG, decodeGIF } from "@dpaint/fileformats";
 import { ImageDocument, type DocumentSnapshot } from "../model/ImageDocument";
 import { History } from "../model/History";
 import { serializeToString, deserializeFromString } from "../model/serialization";
@@ -149,9 +149,17 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
 
   const loadImageBytes = useCallback(
     async (bytes: Uint8Array, name = "") => {
-      if (detectFormat(bytes, name) !== "PNG") return false;
-      const { width, height, data } = await decodePNG(bytes);
-      docRef.current = ImageDocument.fromRGBA(width, height, data);
+      const format = detectFormat(bytes, name);
+      let image: { width: number; height: number; data: Uint8Array | Uint8ClampedArray } | null = null;
+      if (format === "PNG") {
+        image = await decodePNG(bytes);
+      } else if (format === "GIF") {
+        const gif = decodeGIF(bytes);
+        const frame = gif.frames[0];
+        if (frame) image = { width: gif.width, height: gif.height, data: frame.data };
+      }
+      if (!image) return false;
+      docRef.current = ImageDocument.fromRGBA(image.width, image.height, image.data);
       historyRef.current.reset(docRef.current.snapshot());
       commit();
       return true;

@@ -54,16 +54,17 @@ in `apps/web` as a React + Vite application.
 │   ├── fileformats/  @dpaint/fileformats — codecs (PNG, GIF, ByteRun1) + detection
 │   └── imaging/      @dpaint/imaging — quantization, median-cut palettes, dithering
 ├── apps/
-│   └── web/          @dpaint/web — React + TypeScript paint application (Vite)
-└── legacy/           the original plain-JS app, quarantined as migration reference
-    ├── _script/      legacy ES6 source (being ported package by package)
-    ├── _style/ _img/ _font/ _data/   legacy assets
-    ├── tests/        the original Playwright end-to-end suite
-    └── index.html    legacy entry point
+│   ├── web/          @dpaint/web — React + TypeScript paint application (Vite)
+│   └── legacy/       dpaint-legacy — the original plain-JS app (migration reference)
+│       ├── _script/  legacy ES6 source (being ported package by package)
+│       ├── _style/ _img/ _font/ _data/   legacy assets
+│       ├── tests/    the original Playwright end-to-end suite
+│       └── index.html  legacy entry point
+└── (root holds only workspace configuration)
 ```
 
-The repository root now holds only workspace configuration plus the three
-top-level areas (`packages/`, `apps/`, `legacy/`).
+The legacy app is a normal workspace member under `apps/` — it is not a special
+top-level directory. The repository root holds only workspace configuration.
 
 ### Prerequisites
 - Node.js ≥ 20
@@ -96,14 +97,14 @@ The migrated code currently ships **151 passing tests at ~87% coverage**.
 - Keyboard shortcuts for tools, zoom, colour swap, and undo/redo
 
 ### Legacy app
-The original plain-JS app now lives under `legacy/` (`dpaint-legacy` workspace
-package) — see [`legacy/README.md`](./legacy/README.md) for why it exists and
-when it will be removed. Run it with:
+The original plain-JS app now lives under `apps/legacy/` (`dpaint-legacy`
+workspace package) — see [`apps/legacy/README.md`](./apps/legacy/README.md) for
+why it exists and when it will be removed. Run it with:
 
 | Command | Description |
 | --- | --- |
 | `pnpm legacy:start` | Serve the legacy app at http://localhost:8080 |
-| `pnpm legacy:build` | Build the legacy app to `legacy/dist` |
+| `pnpm legacy:build` | Build the legacy app to `apps/legacy/dist` |
 | `pnpm legacy:test` | Run the original Playwright end-to-end suite |
 
 It is kept **temporarily** as a reference + fallback while the port proceeds; it
@@ -123,7 +124,7 @@ Ported to TypeScript with tests:
 - [x] raster document, layers, drawing tools, transforms/effects, undo/redo (`@dpaint/web`)
 - [x] PNG + GIF + IFF + PSD + JSON import; PNG + GIF + IFF + JSON export; palette/dither/effects
 
-Still living only in `legacy/` (to be ported next):
+Still living only in `apps/legacy/` (to be ported next):
 - [ ] IFF SHAM/24-bit/interlace read; PSD layers/write
 - [ ] advanced UI panels (colour-cycling animation, ADF browser, gallery, Amiga emulator)
 

@@ -21,6 +21,18 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.19.19)(jsdom@25.0.1)
 
+  apps/legacy:
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.58.2
+        version: 1.60.0
+      http-server:
+        specifier: ^14.1.1
+        version: 14.1.1
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@22.19.19)
+
   apps/web:
     dependencies:
       '@dpaint/core':
@@ -66,18 +78,6 @@ importers:
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1
-      vite:
-        specifier: ^5.4.21
-        version: 5.4.21(@types/node@22.19.19)
-
-  legacy:
-    devDependencies:
-      '@playwright/test':
-        specifier: ^1.58.2
-        version: 1.60.0
-      http-server:
-        specifier: ^14.1.1
-        version: 14.1.1
       vite:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@22.19.19)

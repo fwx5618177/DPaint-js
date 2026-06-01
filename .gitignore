@@ -11,7 +11,7 @@ coverage/
 .vitest/
 
 # legacy
-legacy/gallery/
+apps/legacy/gallery/
 .parcel-cache
 playwright-report/
 test-results/

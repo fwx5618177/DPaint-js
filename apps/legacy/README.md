@@ -1,4 +1,4 @@
-# `legacy/` — original plain-JS DPaint.js
+# `apps/legacy/` — original plain-JS DPaint.js
 
 This directory holds the **original, pre-migration DPaint.js application**,
 written in plain ES6 JavaScript with zero runtime dependencies. It is kept

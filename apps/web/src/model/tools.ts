@@ -8,6 +8,9 @@ export type ToolId =
   | "fillellipse"
   | "fill"
   | "gradient"
+  | "spray"
+  | "smudge"
+  | "text"
   | "picker";
 
 export interface ToolDef {
@@ -30,6 +33,9 @@ export const TOOLS: ToolDef[] = [
   { id: "fillellipse", label: "Filled ellipse", glyph: "⬤", shortcut: "o", hint: "Filled ellipse" },
   { id: "fill", label: "Fill", glyph: "🪣", shortcut: "f", hint: "Flood fill" },
   { id: "gradient", label: "Gradient", glyph: "🌈", shortcut: "g", hint: "Linear gradient (fore→back)" },
+  { id: "spray", label: "Airbrush", glyph: "💨", shortcut: "a", hint: "Spray / airbrush" },
+  { id: "smudge", label: "Smudge", glyph: "👆", shortcut: "m", hint: "Smudge colours" },
+  { id: "text", label: "Text", glyph: "🅰", shortcut: "t", hint: "Place text" },
   { id: "picker", label: "Picker", glyph: "💧", shortcut: "k", hint: "Pick colour" },
 ];
 

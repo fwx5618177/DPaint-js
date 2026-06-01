@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EVENT } from "@dpaint/core";
 import { useEditor } from "../state/EditorContext";
+import { renderTextRegion } from "../model/textRender";
 
 interface DragState {
   startX: number;
@@ -132,15 +133,29 @@ export function CanvasView() {
       if (tool === "pencil") {
         doc.setPixel(x, y, color);
         commit();
+      } else if (tool === "spray") {
+        doc.spray(x, y, 4, 8, color);
+        commit();
       } else if (tool === "fill" || tool === "picker") {
         applyStroke(x, y, drag, false);
         commit();
+      } else if (tool === "text") {
+        const str = typeof window !== "undefined" ? window.prompt("Enter text:") : null;
+        if (str) {
+          const region = renderTextRegion(str, color);
+          if (region) {
+            doc.stampRegion(region, x, y);
+            commit();
+            checkpoint();
+          }
+        }
+        dragRef.current = null; // one-shot
       } else if (tool === "select") {
         setSelectionFromDrag(drag, x, y);
         commit();
       }
     },
-    [toDocCoords, tool, doc, color, commit, applyStroke, setSelectionFromDrag],
+    [toDocCoords, tool, doc, color, commit, checkpoint, applyStroke, setSelectionFromDrag],
   );
 
   const onPointerMove = useCallback(
@@ -154,12 +169,20 @@ export function CanvasView() {
         drag.lastX = x;
         drag.lastY = y;
         commit();
+      } else if (tool === "spray") {
+        doc.spray(x, y, 4, 8, color);
+        commit();
+      } else if (tool === "smudge") {
+        doc.smudge(drag.lastX, drag.lastY, x, y, 0.5);
+        drag.lastX = x;
+        drag.lastY = y;
+        commit();
       } else if (tool === "select") {
         setSelectionFromDrag(drag, x, y);
         commit();
       }
     },
-    [toDocCoords, tool, applyStroke, commit, setSelectionFromDrag],
+    [toDocCoords, tool, doc, color, applyStroke, commit, setSelectionFromDrag],
   );
 
   const onPointerUp = useCallback(
@@ -182,8 +205,8 @@ export function CanvasView() {
         commit();
       }
       dragRef.current = null;
-      // The picker and select tools do not mutate pixels (no undo step).
-      if (tool !== "picker" && tool !== "select") checkpoint();
+      // Picker/select don't mutate pixels; text already checkpointed on down.
+      if (tool !== "picker" && tool !== "select" && tool !== "text") checkpoint();
     },
     [toDocCoords, tool, applyStroke, commit, checkpoint, setSelectionFromDrag],
   );

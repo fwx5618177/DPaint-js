@@ -120,6 +120,59 @@ describe("ImageDocument drawEllipse", () => {
   });
 });
 
+describe("ImageDocument spray", () => {
+  it("scatters the requested number of pixels within the radius", () => {
+    const doc = newDoc(20, 20);
+    // deterministic rng cycling through fixed values
+    const seq = [0, 0.25, 0.1, 0.5, 0.4, 0.9, 0.7, 0.2, 0.3, 0.8];
+    let i = 0;
+    const rng = () => seq[i++ % seq.length]!;
+    doc.spray(10, 10, 5, 5, [255, 0, 0], doc.activeLayer, rng);
+    let painted = 0;
+    for (let y = 0; y < 20; y++) {
+      for (let x = 0; x < 20; x++) {
+        const p = doc.getPixel(x, y)!;
+        if (p[3] !== 0) {
+          painted++;
+          const d = Math.hypot(x - 10, y - 10);
+          expect(d).toBeLessThanOrEqual(5.5); // within radius (rounding slack)
+        }
+      }
+    }
+    expect(painted).toBeGreaterThan(0);
+  });
+
+  it("is deterministic for a fixed rng", () => {
+    const rng = () => 0.5;
+    const a = newDoc(10, 10);
+    const b = newDoc(10, 10);
+    a.spray(5, 5, 3, 4, [1, 2, 3], a.activeLayer, rng);
+    b.spray(5, 5, 3, 4, [1, 2, 3], b.activeLayer, () => 0.5);
+    expect(Array.from(a.activeLayer.data)).toEqual(Array.from(b.activeLayer.data));
+  });
+});
+
+describe("ImageDocument smudge", () => {
+  it("drags colour from a source pixel into neighbouring pixels", () => {
+    const doc = newDoc(5, 1);
+    doc.setPixel(0, 0, [200, 0, 0]); // rest black-transparent
+    doc.drawLine(1, 0, 4, 0, [0, 0, 0]); // make 1..4 opaque black
+    doc.smudge(0, 0, 4, 0, 0.5);
+    // colour should bleed rightward, decreasing
+    const p1 = doc.getPixel(1, 0)!;
+    expect(p1[0]).toBeGreaterThan(0); // some red dragged in
+    const p4 = doc.getPixel(4, 0)!;
+    expect(p1[0]).toBeGreaterThanOrEqual(p4[0]!); // fades along the drag
+  });
+
+  it("does nothing meaningful for zero strength", () => {
+    const doc = newDoc(3, 1);
+    doc.drawLine(0, 0, 2, 0, [50, 60, 70]);
+    doc.smudge(0, 0, 2, 0, 0);
+    expect(doc.getPixel(2, 0)).toEqual([50, 60, 70, 255]);
+  });
+});
+
 describe("ImageDocument gradientLinear", () => {
   it("fills a horizontal black→white gradient", () => {
     const doc = newDoc(5, 1);

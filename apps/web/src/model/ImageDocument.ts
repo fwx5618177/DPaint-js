@@ -403,6 +403,67 @@ export class ImageDocument {
     }
   }
 
+  /**
+   * Airbrush: scatter `count` pixels of `color` within `radius` of (cx, cy),
+   * uniformly over the disc. `rng` is injectable for deterministic tests.
+   */
+  spray(
+    cx: number,
+    cy: number,
+    radius: number,
+    count: number,
+    color: ColorArray,
+    layer: Layer = this.activeLayer,
+    rng: () => number = Math.random,
+  ): void {
+    for (let i = 0; i < count; i++) {
+      const angle = rng() * Math.PI * 2;
+      const dist = Math.sqrt(rng()) * radius; // sqrt → uniform disc density
+      const x = Math.round(cx + Math.cos(angle) * dist);
+      const y = Math.round(cy + Math.sin(angle) * dist);
+      this.setPixel(x, y, color, layer);
+    }
+  }
+
+  /**
+   * Smudge: drag the colour picked up at (x0,y0) along the path to (x1,y1),
+   * blending each visited pixel toward the carried colour by `strength` (0..1).
+   * Deterministic.
+   */
+  smudge(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    strength: number,
+    layer: Layer = this.activeLayer,
+  ): void {
+    x0 = Math.round(x0);
+    y0 = Math.round(y0);
+    x1 = Math.round(x1);
+    y1 = Math.round(y1);
+    const carried = this.getPixel(x0, y0, layer);
+    if (!carried) return;
+    const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+    for (let s = 0; s <= steps; s++) {
+      const x = Math.round(x0 + ((x1 - x0) * s) / steps);
+      const y = Math.round(y0 + ((y1 - y0) * s) / steps);
+      const current = this.getPixel(x, y, layer);
+      if (!current) continue;
+      const blended: ColorArray = [
+        Math.round(current[0] + (carried[0] - current[0]) * strength),
+        Math.round(current[1] + (carried[1] - current[1]) * strength),
+        Math.round(current[2] + (carried[2] - current[2]) * strength),
+        current[3],
+      ];
+      this.setPixel(x, y, blended, layer);
+      // pick up the new colour for the next step
+      carried[0] = blended[0]!;
+      carried[1] = blended[1]!;
+      carried[2] = blended[2]!;
+    }
+  }
+
   /** 4-way scanline flood fill. */
   floodFill(x: number, y: number, color: ColorArray, layer: Layer = this.activeLayer): void {
     if (!this.inBounds(x, y)) return;

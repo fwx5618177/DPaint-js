@@ -26,3 +26,20 @@ export {
   type ColorDepth,
 } from "./colordepth.js";
 export { offset, medianFilter, sharpen } from "./alchemy.js";
+export {
+  displace,
+  glow,
+  dots,
+  speckles,
+  lines,
+  web,
+  ripples,
+  mulberry32,
+  type Rng,
+  type DisplaceOptions,
+  type SpeckleOptions,
+  type LinesOptions,
+  type WebOptions,
+  type RippleOptions,
+  type DotsOptions,
+} from "./artistic.js";

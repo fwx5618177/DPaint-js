@@ -28,6 +28,7 @@ export function MenuBar() {
     offsetImage,
     medianSmooth,
     sharpenImage,
+    applyArtistic,
     colorCycleActive,
     toggleColorCycle,
     hasClipboard,
@@ -232,6 +233,17 @@ export function MenuBar() {
       <button type="button" data-testid="menu-sharpen" onClick={sharpenImage}>
         Sharpen
       </button>
+      {(["displace", "glow", "dots", "speckles", "lines", "web", "ripples"] as const).map((fx) => (
+        <button
+          key={fx}
+          type="button"
+          data-testid={`menu-fx-${fx}`}
+          title={`Apply ${fx} filter`}
+          onClick={() => applyArtistic(fx)}
+        >
+          {fx[0]!.toUpperCase() + fx.slice(1)}
+        </button>
+      ))}
       <span className="menu-sep" aria-hidden="true" />
       <button
         type="button"

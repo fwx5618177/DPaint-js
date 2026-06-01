@@ -40,6 +40,13 @@ import {
   offset,
   medianFilter,
   sharpen,
+  displace,
+  glow,
+  dots,
+  speckles,
+  lines,
+  web,
+  ripples,
   type ColorRange,
   type ColorDepth,
 } from "@dpaint/imaging";
@@ -52,6 +59,8 @@ import {
 import { History } from "@dpaint/document";
 import { serializeToString, deserializeFromString } from "@dpaint/document";
 import type { ToolId } from "@dpaint/document";
+
+export type ArtisticFilter = "displace" | "glow" | "dots" | "speckles" | "lines" | "web" | "ripples";
 
 export interface EditorApi {
   doc: ImageDocument;
@@ -114,6 +123,7 @@ export interface EditorApi {
   offsetImage: () => void;
   medianSmooth: () => void;
   sharpenImage: () => void;
+  applyArtistic: (name: ArtisticFilter) => void;
 
   /** Amiga-style colour cycling (non-destructive animated preview). */
   colorCycleActive: boolean;
@@ -419,6 +429,41 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     checkpoint();
   }, [checkpoint]);
 
+  const applyArtistic = useCallback(
+    (name: ArtisticFilter) => {
+      const doc = docRef.current;
+      const layer = doc.activeLayer;
+      const { width: w, height: h } = doc;
+      let result: Uint8ClampedArray;
+      switch (name) {
+        case "displace":
+          result = displace(layer.data, w, h, { colWidth: 4, rowWidth: 4, hShift: -1, vShift: 1 });
+          break;
+        case "glow":
+          result = glow(layer.data, w, h);
+          break;
+        case "dots":
+          result = dots(layer.data, w, h);
+          break;
+        case "speckles":
+          result = speckles(layer.data, w, h);
+          break;
+        case "lines":
+          result = lines(layer.data, w, h);
+          break;
+        case "web":
+          result = web(layer.data, w, h);
+          break;
+        case "ripples":
+          result = ripples(layer.data, w, h, { dropX: Math.floor(w / 2), dropY: Math.floor(h / 2) });
+          break;
+      }
+      layer.data.set(result);
+      checkpoint();
+    },
+    [checkpoint],
+  );
+
   const stopColorCycle = useCallback(() => {
     const session = cycleRef.current;
     if (!session) return;
@@ -559,6 +604,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       offsetImage,
       medianSmooth,
       sharpenImage,
+      applyArtistic,
       colorCycleActive,
       toggleColorCycle,
       frameCount: docRef.current.frameCount,
@@ -610,6 +656,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       offsetImage,
       medianSmooth,
       sharpenImage,
+      applyArtistic,
       colorCycleActive,
       toggleColorCycle,
       addFrame,

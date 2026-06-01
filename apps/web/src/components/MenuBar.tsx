@@ -23,6 +23,8 @@ export function MenuBar() {
     posterizeImage,
     thresholdImage,
     blurImage,
+    colorCycleActive,
+    toggleColorCycle,
     invert,
     grayscale,
   } = useEditor();
@@ -199,6 +201,16 @@ export function MenuBar() {
         onClick={paletteFromImage}
       >
         Palette
+      </button>
+      <button
+        type="button"
+        data-testid="menu-cycle"
+        className={colorCycleActive ? "active" : ""}
+        aria-pressed={colorCycleActive}
+        title="Toggle colour-cycling animation"
+        onClick={toggleColorCycle}
+      >
+        Cycle
       </button>
       <button
         type="button"

@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -27,8 +28,10 @@ import {
   posterize,
   threshold,
   boxBlur,
+  cyclePalette,
+  type ColorRange,
 } from "@dpaint/imaging";
-import { ImageDocument, type DocumentSnapshot } from "../model/ImageDocument";
+import { ImageDocument, type DocumentSnapshot, type Layer } from "../model/ImageDocument";
 import { History } from "../model/History";
 import { serializeToString, deserializeFromString } from "../model/serialization";
 import type { ToolId } from "../model/tools";
@@ -87,6 +90,10 @@ export interface EditorApi {
   thresholdImage: () => void;
   blurImage: () => void;
 
+  /** Amiga-style colour cycling (non-destructive animated preview). */
+  colorCycleActive: boolean;
+  toggleColorCycle: () => void;
+
   /** Image transforms (all layers) and layer effects, each an undo checkpoint. */
   flipHorizontal: () => void;
   flipVertical: () => void;
@@ -109,6 +116,12 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
   const [color, setColor] = useState<ColorArray>([255, 255, 255]);
   const [bgColor, setBgColor] = useState<ColorArray>([0, 0, 0]);
   const [zoom, setZoom] = useState(8);
+  const [colorCycleActive, setColorCycleActive] = useState(false);
+  const cycleRef = useRef<{
+    id: ReturnType<typeof setInterval>;
+    layer: Layer;
+    original: Uint8ClampedArray;
+  } | null>(null);
   const busRef = useRef<EventBus>(createEventBus());
   const historyRef = useRef<History<DocumentSnapshot>>(new History<DocumentSnapshot>(50));
   if (historyRef.current.size === 0) historyRef.current.reset(docRef.current.snapshot());
@@ -253,6 +266,50 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     checkpoint();
   }, [checkpoint]);
 
+  const stopColorCycle = useCallback(() => {
+    const session = cycleRef.current;
+    if (!session) return;
+    clearInterval(session.id);
+    session.layer.data.set(session.original); // restore — cycling is a preview
+    cycleRef.current = null;
+    setColorCycleActive(false);
+    commit();
+  }, [commit]);
+
+  const startColorCycle = useCallback(() => {
+    if (cycleRef.current) return;
+    const doc = docRef.current;
+    const layer = doc.activeLayer;
+    const original = new Uint8ClampedArray(layer.data);
+    const indices = quantizeToPalette(layer.data, doc.palette);
+    const basePalette = doc.palette.map((c) => c.slice());
+    const ranges: ColorRange[] = [{ low: 0, high: doc.palette.length - 1 }];
+    let tick = 0;
+    const id = setInterval(() => {
+      tick++;
+      const cycled = cyclePalette(basePalette, ranges, tick);
+      const rgba = indicesToRGBA(indices, cycled);
+      for (let i = 0; i < original.length; i += 4) {
+        if (original[i + 3] === 0) rgba[i + 3] = 0; // keep transparency
+      }
+      layer.data.set(rgba);
+      commit();
+    }, 120);
+    cycleRef.current = { id, layer, original };
+    setColorCycleActive(true);
+  }, [commit]);
+
+  const toggleColorCycle = useCallback(() => {
+    if (cycleRef.current) stopColorCycle();
+    else startColorCycle();
+  }, [startColorCycle, stopColorCycle]);
+
+  useEffect(() => {
+    return () => {
+      if (cycleRef.current) clearInterval(cycleRef.current.id);
+    };
+  }, []);
+
   const loadImageBytes = useCallback(
     async (bytes: Uint8Array, name = "") => {
       const format = detectFormat(bytes, name);
@@ -319,6 +376,8 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       posterizeImage,
       thresholdImage,
       blurImage,
+      colorCycleActive,
+      toggleColorCycle,
       flipHorizontal,
       flipVertical,
       invert,
@@ -349,6 +408,8 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       posterizeImage,
       thresholdImage,
       blurImage,
+      colorCycleActive,
+      toggleColorCycle,
       flipHorizontal,
       flipVertical,
       invert,
@@ -378,6 +439,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     bus.on(COMMAND.FLIPHORIZONTAL, () => flipHorizontal());
     bus.on(COMMAND.FLIPVERTICAL, () => flipVertical());
     bus.on(COMMAND.PALETTEFROMIMAGE, () => paletteFromImage());
+    bus.on(COMMAND.CYCLEPALETTE, () => toggleColorCycle());
   }
 
   return <EditorContext.Provider value={api}>{children}</EditorContext.Provider>;

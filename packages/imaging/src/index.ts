@@ -17,3 +17,4 @@ export {
   threshold,
   boxBlur,
 } from "./effects.js";
+export { cyclePalette, type ColorRange } from "./colorcycle.js";

@@ -24,6 +24,7 @@ import {
   decodeNeo,
   decodeAseprite,
   decodeAmigaIcon,
+  AdfDisk,
 } from "@dpaint/fileformats";
 import {
   buildPaletteFromImage,
@@ -97,6 +98,8 @@ export interface EditorApi {
   exportILBM: () => Uint8Array;
   /** Load an image file (PNG or GIF) into a new document. Returns true on success. */
   loadImageBytes: (bytes: Uint8Array, name?: string) => Promise<boolean>;
+  /** Mount an Amiga ADF disk image and open the first image file it contains. */
+  loadADF: (bytes: Uint8Array) => Promise<boolean>;
 
   /** Colour reduction: derive the palette from the image, or dither to it. */
   paletteFromImage: () => void;
@@ -501,6 +504,17 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     [commit],
   );
 
+  const loadADF = useCallback(
+    async (bytes: Uint8Array) => {
+      const disk = new AdfDisk(bytes);
+      const imageExt = /\.(iff|ilbm|lbm|png|info)$/i;
+      const target = disk.list().find((e) => e.type === "FILE" && imageExt.test(e.name));
+      if (!target) return false;
+      return loadImageBytes(disk.readFile(target.sector), target.name);
+    },
+    [loadImageBytes],
+  );
+
   const swapColors = useCallback(() => {
     setColor(bgColor);
     setBgColor(color);
@@ -535,6 +549,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       exportGIF,
       exportILBM,
       loadImageBytes,
+      loadADF,
       paletteFromImage,
       ditherImage,
       posterizeImage,
@@ -585,6 +600,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       exportGIF,
       exportILBM,
       loadImageBytes,
+      loadADF,
       paletteFromImage,
       ditherImage,
       posterizeImage,

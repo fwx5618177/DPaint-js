@@ -18,6 +18,7 @@ export function MenuBar() {
     exportGIF,
     exportILBM,
     loadImageBytes,
+    loadADF,
     paletteFromImage,
     ditherImage,
     posterizeImage,
@@ -66,6 +67,10 @@ export function MenuBar() {
   const handleLoadFile = async (file: File) => {
     try {
       const name = file.name.toLowerCase();
+      if (name.endsWith(".adf")) {
+        await loadADF(new Uint8Array(await file.arrayBuffer()));
+        return;
+      }
       const isImage =
         name.endsWith(".png") ||
         name.endsWith(".gif") ||
@@ -121,7 +126,7 @@ export function MenuBar() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,application/json,.png,image/png,.gif,image/gif,.iff,.ilbm,.lbm,.psd,.pi1,.pi2,.pi3,.neo,.ase,.aseprite,.info"
+        accept=".json,application/json,.png,image/png,.gif,image/gif,.iff,.ilbm,.lbm,.psd,.pi1,.pi2,.pi3,.neo,.ase,.aseprite,.info,.adf"
         data-testid="file-input"
         style={{ display: "none" }}
         onChange={(e) => {

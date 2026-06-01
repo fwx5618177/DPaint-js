@@ -45,3 +45,6 @@ export type { DecodedAseprite, AsepriteLayer } from "./aseprite.js";
 
 export { decodeAmigaIcon, default as AmigaIcon } from "./amigaIcon.js";
 export type { DecodedAmigaIcon, AmigaIconImage } from "./amigaIcon.js";
+
+export { AdfDisk, decodeADF, default as ADF } from "./adf.js";
+export type { DecodedADF, AdfEntry, AdfEntryType } from "./adf.js";

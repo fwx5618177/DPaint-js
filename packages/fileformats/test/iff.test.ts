@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { BinaryStream, type ColorArray } from "@dpaint/util";
-import { decodeILBM, encodeILBM, encodeTrueColorILBM } from "../src/iff.js";
+import { decodeILBM, encodeILBM, encodeTrueColorILBM, encodeHAM6 } from "../src/iff.js";
 import { detectFormat } from "../src/detect.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -141,6 +141,42 @@ describe("24-bit true-colour ILBM round-trip", () => {
     expect(decoded.width).toBe(width);
     expect(decoded.height).toBe(height);
     expect(Array.from(decoded.data)).toEqual(Array.from(data));
+  });
+});
+
+describe("HAM6 encode → decode", () => {
+  const PALETTE: ColorArray[] = [
+    [0, 0, 0],
+    [255, 0, 0],
+    [0, 255, 0],
+    [0, 0, 255],
+  ];
+
+  it("emits a HAM6 ILBM", () => {
+    const data = new Uint8ClampedArray([255, 0, 0, 255]);
+    const ham = encodeHAM6({ width: 1, height: 1, data, palette: PALETTE });
+    expect(detectFormat(ham)).toBe("ILBM");
+    expect(decodeILBM(ham).mode).toBe("ham6");
+  });
+
+  it("round-trips colours that are exact palette entries", () => {
+    const width = 4;
+    const height = 2;
+    const order = [0, 1, 2, 3, 1, 2, 3, 0];
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < width * height; i++) {
+      const c = PALETTE[order[i]!]!;
+      data[i * 4] = c[0]!;
+      data[i * 4 + 1] = c[1]!;
+      data[i * 4 + 2] = c[2]!;
+      data[i * 4 + 3] = 255;
+    }
+    const decoded = decodeILBM(encodeHAM6({ width, height, data, palette: PALETTE }));
+    for (let i = 0; i < width * height; i++) {
+      const c = PALETTE[order[i]!]!;
+      const o = i * 4;
+      expect([decoded.data[o], decoded.data[o + 1], decoded.data[o + 2]]).toEqual([c[0], c[1], c[2]]);
+    }
   });
 });
 

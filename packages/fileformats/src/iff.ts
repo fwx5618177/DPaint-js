@@ -343,5 +343,131 @@ export function encodeTrueColorILBM(input: ILBM24EncodeInput): Uint8Array {
   return new Uint8Array(f.buffer);
 }
 
-const IFF = { decodeILBM, encodeILBM, encodeTrueColorILBM };
+export interface HAMEncodeInput {
+  width: number;
+  height: number;
+  data: Uint8Array | Uint8ClampedArray; // RGBA
+  /** Base palette (up to 16 colours for HAM6). */
+  palette: ColorArray[];
+}
+
+/**
+ * Encode an RGBA image as a HAM6 ILBM (6 planes, CAMG HAM flag). A greedy
+ * per-scanline encoder: each pixel is either a base-palette index or a single
+ * 4-bit channel modification of the previous pixel — whichever is closest.
+ * Round-trips exactly for images that only use base-palette colours.
+ */
+export function encodeHAM6(input: HAMEncodeInput): Uint8Array {
+  const { width, height, data } = input;
+  const palette = input.palette.slice(0, 16);
+  const numPlanes = 6;
+  const rowBytes = ((width + 15) >> 4) << 1;
+  const bodySize = rowBytes * numPlanes * height;
+
+  const dist = (r: number, g: number, b: number, c: ColorArray) => {
+    const dr = r - c[0]!;
+    const dg = g - c[1]!;
+    const db = b - c[2]!;
+    return dr * dr + dg * dg + db * db;
+  };
+
+  // 6-bit code per pixel: (modifier << 4) | value(0..15)
+  const codes = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    let prev: ColorArray = [0, 0, 0];
+    for (let x = 0; x < width; x++) {
+      const o = (y * width + x) * 4;
+      const r = data[o]!;
+      const g = data[o + 1]!;
+      const b = data[o + 2]!;
+      let bestCost = Infinity;
+      let bestCode = 0;
+      let bestColor: ColorArray = [0, 0, 0];
+
+      for (let i = 0; i < palette.length; i++) {
+        const cost = dist(r, g, b, palette[i]!);
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestCode = i; // modifier 0
+          bestColor = palette[i]!;
+        }
+      }
+      // modifier 1 = B, 2 = R, 3 = G
+      const tryModify = (modifier: number, channel: number, value: number) => {
+        const v4 = value >> 4;
+        const expanded = v4 << 4;
+        const c: ColorArray = [prev[0]!, prev[1]!, prev[2]!];
+        c[channel] = expanded;
+        const cost = dist(r, g, b, c);
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestCode = (modifier << 4) | v4;
+          bestColor = c;
+        }
+      };
+      tryModify(1, 2, b);
+      tryModify(2, 0, r);
+      tryModify(3, 1, g);
+
+      codes[y * width + x] = bestCode;
+      prev = bestColor;
+    }
+  }
+
+  const formContent = 4 + (8 + 20) + (8 + 12) + (8 + palette.length * 3) + ((palette.length * 3) & 1) + (8 + bodySize);
+  const f = new BinaryStream(new ArrayBuffer(8 + formContent), true);
+  f.writeString("FORM");
+  f.writeUint(formContent);
+  f.writeString("ILBM");
+
+  f.writeString("BMHD");
+  f.writeUint(20);
+  f.writeWord(width);
+  f.writeWord(height);
+  f.writeWord(0);
+  f.writeWord(0);
+  f.writeUbyte(numPlanes);
+  f.writeUbyte(0);
+  f.writeUbyte(0);
+  f.writeUbyte(0);
+  f.writeWord(0);
+  f.writeUbyte(1);
+  f.writeUbyte(1);
+  f.writeWord(width);
+  f.writeWord(height);
+
+  f.writeString("CAMG");
+  f.writeUint(4);
+  f.writeUint(0x800); // HAM flag
+
+  const cmapSize = palette.length * 3;
+  f.writeString("CMAP");
+  f.writeUint(cmapSize);
+  for (const c of palette) {
+    f.writeUbyte(c[0]!);
+    f.writeUbyte(c[1]!);
+    f.writeUbyte(c[2]!);
+  }
+  if (cmapSize & 1) f.writeUbyte(0);
+
+  f.writeString("BODY");
+  f.writeUint(bodySize);
+  const row = new Uint8Array(rowBytes * numPlanes);
+  for (let y = 0; y < height; y++) {
+    row.fill(0);
+    for (let x = 0; x < width; x++) {
+      const code = codes[y * width + x]!;
+      const byteIndex = x >> 3;
+      const bit = 0x80 >> (x & 7);
+      for (let p = 0; p < numPlanes; p++) {
+        if (code & (1 << p)) row[p * rowBytes + byteIndex] |= bit;
+      }
+    }
+    f.writeByteArray(row);
+  }
+
+  return new Uint8Array(f.buffer);
+}
+
+const IFF = { decodeILBM, encodeILBM, encodeTrueColorILBM, encodeHAM6 };
 export default IFF;

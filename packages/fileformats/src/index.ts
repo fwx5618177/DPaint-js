@@ -19,8 +19,20 @@ export type {
   GifAnimEncodeInput,
 } from "./gif.js";
 
-export { decodeILBM, encodeILBM, encodeTrueColorILBM, default as IFF } from "./iff.js";
-export type { DecodedILBM, ILBMMode, ILBMEncodeInput, ILBM24EncodeInput } from "./iff.js";
+export {
+  decodeILBM,
+  encodeILBM,
+  encodeTrueColorILBM,
+  encodeHAM6,
+  default as IFF,
+} from "./iff.js";
+export type {
+  DecodedILBM,
+  ILBMMode,
+  ILBMEncodeInput,
+  ILBM24EncodeInput,
+  HAMEncodeInput,
+} from "./iff.js";
 
 export { decodePSD, default as PSD } from "./psd.js";
 export type { DecodedPSD } from "./psd.js";

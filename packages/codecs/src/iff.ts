@@ -352,15 +352,18 @@ export interface HAMEncodeInput {
 }
 
 /**
- * Encode an RGBA image as a HAM6 ILBM (6 planes, CAMG HAM flag). A greedy
- * per-scanline encoder: each pixel is either a base-palette index or a single
- * 4-bit channel modification of the previous pixel — whichever is closest.
- * Round-trips exactly for images that only use base-palette colours.
+ * Encode an RGBA image as a HAM ILBM (HAM6 = 6 planes, HAM8 = 8 planes, CAMG
+ * HAM flag). A greedy per-scanline encoder: each pixel is either a base-palette
+ * index or a single channel modification of the previous pixel — whichever is
+ * closest. Round-trips exactly for images that only use base-palette colours.
  */
-export function encodeHAM6(input: HAMEncodeInput): Uint8Array {
+export function encodeHAM(input: HAMEncodeInput, planes: 6 | 8 = 6): Uint8Array {
   const { width, height, data } = input;
-  const palette = input.palette.slice(0, 16);
-  const numPlanes = 6;
+  const colorPlanes = planes >= 7 ? 6 : 4;
+  const maxColors = 1 << colorPlanes;
+  const valueShift = 8 - colorPlanes; // bits dropped when reducing a channel
+  const palette = input.palette.slice(0, maxColors);
+  const numPlanes = planes;
   const rowBytes = ((width + 15) >> 4) << 1;
   const bodySize = rowBytes * numPlanes * height;
 
@@ -371,7 +374,7 @@ export function encodeHAM6(input: HAMEncodeInput): Uint8Array {
     return dr * dr + dg * dg + db * db;
   };
 
-  // 6-bit code per pixel: (modifier << 4) | value(0..15)
+  // code per pixel: (modifier << colorPlanes) | value(0..maxColors-1)
   const codes = new Uint8Array(width * height);
   for (let y = 0; y < height; y++) {
     let prev: ColorArray = [0, 0, 0];
@@ -394,14 +397,14 @@ export function encodeHAM6(input: HAMEncodeInput): Uint8Array {
       }
       // modifier 1 = B, 2 = R, 3 = G
       const tryModify = (modifier: number, channel: number, value: number) => {
-        const v4 = value >> 4;
-        const expanded = v4 << 4;
+        const v = value >> valueShift;
+        const expanded = (v << valueShift) & 0xff;
         const c: ColorArray = [prev[0]!, prev[1]!, prev[2]!];
         c[channel] = expanded;
         const cost = dist(r, g, b, c);
         if (cost < bestCost) {
           bestCost = cost;
-          bestCode = (modifier << 4) | v4;
+          bestCode = (modifier << colorPlanes) | v;
           bestColor = c;
         }
       };
@@ -414,7 +417,8 @@ export function encodeHAM6(input: HAMEncodeInput): Uint8Array {
     }
   }
 
-  const formContent = 4 + (8 + 20) + (8 + 12) + (8 + palette.length * 3) + ((palette.length * 3) & 1) + (8 + bodySize);
+  const cmapSize = palette.length * 3;
+  const formContent = 4 + (8 + 20) + (8 + 4) + (8 + cmapSize) + (cmapSize & 1) + (8 + bodySize);
   const f = new BinaryStream(new ArrayBuffer(8 + formContent), true);
   f.writeString("FORM");
   f.writeUint(formContent);
@@ -440,7 +444,6 @@ export function encodeHAM6(input: HAMEncodeInput): Uint8Array {
   f.writeUint(4);
   f.writeUint(0x800); // HAM flag
 
-  const cmapSize = palette.length * 3;
   f.writeString("CMAP");
   f.writeUint(cmapSize);
   for (const c of palette) {
@@ -469,5 +472,136 @@ export function encodeHAM6(input: HAMEncodeInput): Uint8Array {
   return new Uint8Array(f.buffer);
 }
 
-const IFF = { decodeILBM, encodeILBM, encodeTrueColorILBM, encodeHAM6 };
+/** Encode as HAM6 (16-colour base palette). */
+export function encodeHAM6(input: HAMEncodeInput): Uint8Array {
+  return encodeHAM(input, 6);
+}
+
+/** Encode as HAM8 (64-colour base palette). */
+export function encodeHAM8(input: HAMEncodeInput): Uint8Array {
+  return encodeHAM(input, 8);
+}
+
+export interface SHAMEncodeInput {
+  width: number;
+  height: number;
+  data: Uint8Array | Uint8ClampedArray; // RGBA
+}
+
+/**
+ * Encode an RGBA image as a sliced-HAM (SHAM) ILBM: HAM6 with an independent
+ * 16-colour palette per scanline. Each row's palette is the distinct 12-bit
+ * colours of that row (first 16); round-trips exactly when a row uses <= 16
+ * distinct 12-bit colours.
+ */
+export function encodeSHAM(input: SHAMEncodeInput): Uint8Array {
+  const { width, height, data } = input;
+  const numPlanes = 6;
+  const colorPlanes = 4;
+  const rowBytes = ((width + 15) >> 4) << 1;
+  const bodySize = rowBytes * numPlanes * height;
+
+  // Build a 16-colour (12-bit) palette per scanline, and HAM6-encode each row.
+  const rowWords: number[][] = []; // 16 SHAM words per row
+  const codes = new Uint8Array(width * height);
+  const dist = (r: number, g: number, b: number, c: ColorArray) => {
+    const dr = r - c[0]!, dg = g - c[1]!, db = b - c[2]!;
+    return dr * dr + dg * dg + db * db;
+  };
+
+  for (let y = 0; y < height; y++) {
+    // distinct 12-bit colours of this row (expanded form + words)
+    const seen = new Map<number, ColorArray>();
+    for (let x = 0; x < width && seen.size < 16; x++) {
+      const o = (y * width + x) * 4;
+      const r4 = data[o]! >> 4, g4 = data[o + 1]! >> 4, b4 = data[o + 2]! >> 4;
+      const key = (r4 << 8) | (g4 << 4) | b4;
+      if (!seen.has(key)) seen.set(key, [(r4 << 4) | r4, (g4 << 4) | g4, (b4 << 4) | b4]);
+    }
+    const palette = Array.from(seen.values());
+    const words: number[] = [];
+    for (let i = 0; i < 16; i++) {
+      const r4 = (palette[i]?.[0] ?? 0) >> 4;
+      const g4 = (palette[i]?.[1] ?? 0) >> 4;
+      const b4 = (palette[i]?.[2] ?? 0) >> 4;
+      words.push((r4 << 8) | (g4 << 4) | b4);
+    }
+    rowWords.push(words);
+
+    let prev: ColorArray = [0, 0, 0];
+    for (let x = 0; x < width; x++) {
+      const o = (y * width + x) * 4;
+      const r = data[o]!, g = data[o + 1]!, b = data[o + 2]!;
+      let bestCost = Infinity, bestCode = 0, bestColor: ColorArray = [0, 0, 0];
+      for (let i = 0; i < palette.length; i++) {
+        const cost = dist(r, g, b, palette[i]!);
+        if (cost < bestCost) { bestCost = cost; bestCode = i; bestColor = palette[i]!; }
+      }
+      const tryModify = (modifier: number, channel: number, value: number) => {
+        const v = value >> 4;
+        const c: ColorArray = [prev[0]!, prev[1]!, prev[2]!];
+        c[channel] = (v << 4) & 0xff;
+        const cost = dist(r, g, b, c);
+        if (cost < bestCost) { bestCost = cost; bestCode = (modifier << colorPlanes) | v; bestColor = c; }
+      };
+      tryModify(1, 2, b);
+      tryModify(2, 0, r);
+      tryModify(3, 1, g);
+      codes[y * width + x] = bestCode;
+      prev = bestColor;
+    }
+  }
+
+  const shamSize = 2 + height * 16 * 2;
+  const cmap = rowWords[0]!.map((wrd) => {
+    const r4 = (wrd >> 8) & 0xf, g4 = (wrd >> 4) & 0xf, b4 = wrd & 0xf;
+    return [(r4 << 4) | r4, (g4 << 4) | g4, (b4 << 4) | b4] as ColorArray;
+  });
+  const cmapSize = cmap.length * 3;
+
+  const formContent =
+    4 + (8 + 20) + (8 + 4) + (8 + cmapSize) + (cmapSize & 1) + (8 + shamSize) + (8 + bodySize);
+  const f = new BinaryStream(new ArrayBuffer(8 + formContent), true);
+  f.writeString("FORM");
+  f.writeUint(formContent);
+  f.writeString("ILBM");
+
+  f.writeString("BMHD");
+  f.writeUint(20);
+  f.writeWord(width); f.writeWord(height); f.writeWord(0); f.writeWord(0);
+  f.writeUbyte(numPlanes); f.writeUbyte(0); f.writeUbyte(0); f.writeUbyte(0);
+  f.writeWord(0); f.writeUbyte(1); f.writeUbyte(1); f.writeWord(width); f.writeWord(height);
+
+  f.writeString("CAMG");
+  f.writeUint(4);
+  f.writeUint(0x800); // HAM flag
+
+  f.writeString("CMAP");
+  f.writeUint(cmapSize);
+  for (const c of cmap) { f.writeUbyte(c[0]!); f.writeUbyte(c[1]!); f.writeUbyte(c[2]!); }
+  if (cmapSize & 1) f.writeUbyte(0);
+
+  f.writeString("SHAM");
+  f.writeUint(shamSize);
+  f.writeWord(0); // version
+  for (const words of rowWords) for (const wrd of words) f.writeWord(wrd);
+
+  f.writeString("BODY");
+  f.writeUint(bodySize);
+  const row = new Uint8Array(rowBytes * numPlanes);
+  for (let y = 0; y < height; y++) {
+    row.fill(0);
+    for (let x = 0; x < width; x++) {
+      const code = codes[y * width + x]!;
+      const byteIndex = x >> 3;
+      const bit = 0x80 >> (x & 7);
+      for (let p = 0; p < numPlanes; p++) if (code & (1 << p)) row[p * rowBytes + byteIndex] |= bit;
+    }
+    f.writeByteArray(row);
+  }
+
+  return new Uint8Array(f.buffer);
+}
+
+const IFF = { decodeILBM, encodeILBM, encodeTrueColorILBM, encodeHAM, encodeHAM6, encodeHAM8, encodeSHAM };
 export default IFF;

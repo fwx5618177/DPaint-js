@@ -23,7 +23,10 @@ export {
   decodeILBM,
   encodeILBM,
   encodeTrueColorILBM,
+  encodeHAM,
   encodeHAM6,
+  encodeHAM8,
+  encodeSHAM,
   default as IFF,
 } from "./iff.js";
 export type {
@@ -32,10 +35,11 @@ export type {
   ILBMEncodeInput,
   ILBM24EncodeInput,
   HAMEncodeInput,
+  SHAMEncodeInput,
 } from "./iff.js";
 
-export { decodePSD, default as PSD } from "./psd.js";
-export type { DecodedPSD } from "./psd.js";
+export { decodePSD, encodePSD, default as PSD } from "./psd.js";
+export type { DecodedPSD, PsdEncodeInput } from "./psd.js";
 
 export { decodeDEGAS, decodeNeo, default as DEGAS } from "./degas.js";
 export type { DecodedDEGAS } from "./degas.js";

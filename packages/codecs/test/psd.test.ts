@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { BinaryStream } from "@dpaint/primitives";
-import { decodePSD } from "../src/psd.js";
+import { decodePSD, encodePSD } from "../src/psd.js";
 import { detectFormat } from "../src/detect.js";
 
 /** Build a tiny raw (uncompressed) 8-bit RGB PSD with 3 channels. */
@@ -53,5 +53,25 @@ describe("decodePSD — raw RGB", () => {
 
   it("rejects non-PSD input", () => {
     expect(() => decodePSD(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]))).toThrow();
+  });
+});
+
+describe("encodePSD → decodePSD round-trip", () => {
+  it("round-trips RGBA pixels", () => {
+    const width = 3;
+    const height = 2;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < width * height; i++) {
+      data[i * 4] = i * 10;
+      data[i * 4 + 1] = i * 20;
+      data[i * 4 + 2] = i * 30;
+      data[i * 4 + 3] = 200 + i;
+    }
+    const psd = encodePSD({ width, height, data });
+    expect(detectFormat(psd)).toBe("PSD");
+    const decoded = decodePSD(psd);
+    expect(decoded.width).toBe(width);
+    expect(decoded.height).toBe(height);
+    expect(Array.from(decoded.data)).toEqual(Array.from(data));
   });
 });

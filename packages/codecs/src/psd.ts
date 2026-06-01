@@ -89,5 +89,42 @@ export function decodePSD(bytes: Uint8Array): DecodedPSD {
   return { width, height, data: out };
 }
 
-const PSD = { decodePSD };
+export interface PsdEncodeInput {
+  width: number;
+  height: number;
+  data: Uint8Array | Uint8ClampedArray; // RGBA
+}
+
+/**
+ * Encode an RGBA image as an 8-bit RGB(A) PSD (mode 3, 4 channels, raw
+ * compression). Round-trips with {@link decodePSD}.
+ */
+export function encodePSD(input: PsdEncodeInput): Uint8Array {
+  const { width, height, data } = input;
+  const channels = 4;
+  const n = width * height;
+  const total = 26 + 4 + 4 + 4 + 2 + n * channels;
+  const f = new BinaryStream(new ArrayBuffer(total), true);
+
+  f.writeString("8BPS");
+  f.writeWord(1); // version
+  f.fill(0, 6); // reserved
+  f.writeWord(channels);
+  f.writeUint(height);
+  f.writeUint(width);
+  f.writeWord(8); // depth
+  f.writeWord(3); // mode: RGB
+  f.writeUint(0); // colour-mode data
+  f.writeUint(0); // image resources
+  f.writeUint(0); // layer & mask info
+  f.writeWord(0); // compression: raw
+
+  // planar channels: R, G, B, A
+  for (let c = 0; c < channels; c++) {
+    for (let i = 0; i < n; i++) f.writeUbyte(data[i * 4 + c]!);
+  }
+  return new Uint8Array(f.buffer);
+}
+
+const PSD = { decodePSD, encodePSD };
 export default PSD;

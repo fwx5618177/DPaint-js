@@ -19,6 +19,9 @@ import {
   encodeAnimatedGIF,
   decodeILBM,
   encodeILBM,
+  encodeHAM6,
+  encodeSHAM,
+  encodePSD,
   decodePSD,
   decodeDEGAS,
   decodeNeo,
@@ -112,6 +115,12 @@ export interface EditorApi {
   exportGIF: () => Uint8Array;
   /** Encode the flattened document as a (quantized) Amiga IFF/ILBM. */
   exportILBM: () => Uint8Array;
+  /** Encode the flattened document as a HAM6 Amiga IFF. */
+  exportHAM: () => Uint8Array;
+  /** Encode the flattened document as a sliced-HAM (SHAM) Amiga IFF. */
+  exportSHAM: () => Uint8Array;
+  /** Encode the flattened document as a PSD. */
+  exportPSD: () => Uint8Array;
   /** Load an image file (PNG or GIF) into a new document. Returns true on success. */
   loadImageBytes: (bytes: Uint8Array, name?: string) => Promise<boolean>;
   /** Mount an Amiga ADF disk image and open the first image file it contains. */
@@ -396,6 +405,23 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     return encodeILBM({ width: doc.width, height: doc.height, pixels, palette });
   }, []);
 
+  const exportHAM = useCallback(() => {
+    const doc = docRef.current;
+    const composite = doc.composite();
+    const palette = buildPaletteFromImage(composite, 16);
+    return encodeHAM6({ width: doc.width, height: doc.height, data: composite, palette });
+  }, []);
+
+  const exportSHAM = useCallback(() => {
+    const doc = docRef.current;
+    return encodeSHAM({ width: doc.width, height: doc.height, data: doc.composite() });
+  }, []);
+
+  const exportPSD = useCallback(() => {
+    const doc = docRef.current;
+    return encodePSD({ width: doc.width, height: doc.height, data: doc.composite() });
+  }, []);
+
   const paletteFromImage = useCallback(() => {
     const doc = docRef.current;
     doc.palette = buildPaletteFromImage(doc.composite(), 16);
@@ -631,6 +657,9 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       exportPNG,
       exportGIF,
       exportILBM,
+      exportHAM,
+      exportSHAM,
+      exportPSD,
       loadImageBytes,
       loadADF,
       paletteFromImage,
@@ -686,6 +715,9 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       exportPNG,
       exportGIF,
       exportILBM,
+      exportHAM,
+      exportSHAM,
+      exportPSD,
       loadImageBytes,
       loadADF,
       paletteFromImage,

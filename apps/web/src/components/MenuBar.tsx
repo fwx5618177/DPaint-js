@@ -20,6 +20,9 @@ export function MenuBar() {
     exportPNG,
     exportGIF,
     exportILBM,
+    exportHAM,
+    exportSHAM,
+    exportPSD,
     loadImageBytes,
     loadADF,
     paletteFromImage,
@@ -119,6 +122,30 @@ export function MenuBar() {
       </button>
       <button type="button" data-testid="menu-export-iff" onClick={handleExportILBM}>
         IFF
+      </button>
+      <button
+        type="button"
+        data-testid="menu-export-ham"
+        title="Export HAM6 IFF"
+        onClick={() => download(exportHAM() as unknown as BlobPart, "untitled.ham.iff", "image/x-ilbm")}
+      >
+        HAM
+      </button>
+      <button
+        type="button"
+        data-testid="menu-export-sham"
+        title="Export sliced-HAM IFF"
+        onClick={() => download(exportSHAM() as unknown as BlobPart, "untitled.sham.iff", "image/x-ilbm")}
+      >
+        SHAM
+      </button>
+      <button
+        type="button"
+        data-testid="menu-export-psd"
+        title="Export PSD"
+        onClick={() => download(exportPSD() as unknown as BlobPart, "untitled.psd", "image/vnd.adobe.photoshop")}
+      >
+        PSD
       </button>
       <button
         type="button"

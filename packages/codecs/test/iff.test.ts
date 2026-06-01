@@ -3,7 +3,14 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { BinaryStream, type ColorArray } from "@dpaint/primitives";
-import { decodeILBM, encodeILBM, encodeTrueColorILBM, encodeHAM6 } from "../src/iff.js";
+import {
+  decodeILBM,
+  encodeILBM,
+  encodeTrueColorILBM,
+  encodeHAM6,
+  encodeHAM8,
+  encodeSHAM,
+} from "../src/iff.js";
 import { detectFormat } from "../src/detect.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -176,6 +183,67 @@ describe("HAM6 encode → decode", () => {
       const c = PALETTE[order[i]!]!;
       const o = i * 4;
       expect([decoded.data[o], decoded.data[o + 1], decoded.data[o + 2]]).toEqual([c[0], c[1], c[2]]);
+    }
+  });
+});
+
+describe("HAM8 encode → decode", () => {
+  it("emits a HAM8 ILBM and round-trips palette colours", () => {
+    const palette: ColorArray[] = Array.from({ length: 64 }, (_, i) => [i * 4, 0, 255 - i * 4]);
+    const width = 4;
+    const height = 2;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < width * height; i++) {
+      const c = palette[i % 64]!;
+      data[i * 4] = c[0]!;
+      data[i * 4 + 1] = c[1]!;
+      data[i * 4 + 2] = c[2]!;
+      data[i * 4 + 3] = 255;
+    }
+    const decoded = decodeILBM(encodeHAM8({ width, height, data, palette }));
+    expect(decoded.mode).toBe("ham8");
+    for (let i = 0; i < width * height; i++) {
+      const c = palette[i % 64]!;
+      const o = i * 4;
+      expect([decoded.data[o], decoded.data[o + 1], decoded.data[o + 2]]).toEqual([c[0], c[1], c[2]]);
+    }
+  });
+});
+
+describe("SHAM encode → decode", () => {
+  it("round-trips per-row 12-bit colours via sliced palettes", () => {
+    // 2x2, each row uses 2 distinct 12-bit-aligned colours
+    const width = 2;
+    const height = 2;
+    const rows = [
+      [
+        [255, 0, 0],
+        [0, 136, 0],
+      ],
+      [
+        [0, 0, 255],
+        [136, 136, 0],
+      ],
+    ];
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const c = rows[y]![x]!;
+        const o = (y * width + x) * 4;
+        data[o] = c[0]!;
+        data[o + 1] = c[1]!;
+        data[o + 2] = c[2]!;
+        data[o + 3] = 255;
+      }
+    }
+    const decoded = decodeILBM(encodeSHAM({ width, height, data }));
+    expect(decoded.mode).toBe("ham6");
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const c = rows[y]![x]!;
+        const o = (y * width + x) * 4;
+        expect([decoded.data[o], decoded.data[o + 1], decoded.data[o + 2]]).toEqual([c[0], c[1], c[2]]);
+      }
     }
   });
 });

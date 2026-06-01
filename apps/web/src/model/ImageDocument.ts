@@ -304,6 +304,42 @@ export class ImageDocument {
     this.activeLayerIndex = Math.min(snapshot.activeLayerIndex, this.layers.length - 1);
   }
 
+  /**
+   * Fill a layer with a linear gradient from `colorA` (at the start point) to
+   * `colorB` (at the end point), projecting each pixel onto the drag vector.
+   */
+  gradientLinear(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    colorA: ColorArray,
+    colorB: ColorArray,
+    layer: Layer = this.activeLayer,
+  ): void {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const len2 = dx * dx + dy * dy;
+    const ar = colorA[0]!;
+    const ag = colorA[1]!;
+    const ab = colorA[2]!;
+    const br = colorB[0]!;
+    const bg = colorB[1]!;
+    const bb = colorB[2]!;
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        let t = len2 === 0 ? 0 : ((x - x0) * dx + (y - y0) * dy) / len2;
+        if (t < 0) t = 0;
+        else if (t > 1) t = 1;
+        const o = (y * this.width + x) * 4;
+        layer.data[o] = Math.round(ar + (br - ar) * t);
+        layer.data[o + 1] = Math.round(ag + (bg - ag) * t);
+        layer.data[o + 2] = Math.round(ab + (bb - ab) * t);
+        layer.data[o + 3] = 255;
+      }
+    }
+  }
+
   /** 4-way scanline flood fill. */
   floodFill(x: number, y: number, color: ColorArray, layer: Layer = this.activeLayer): void {
     if (!this.inBounds(x, y)) return;

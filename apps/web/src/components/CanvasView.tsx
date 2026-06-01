@@ -12,7 +12,7 @@ interface DragState {
 /** Renders the composited document into a canvas and routes pointer input to tools. */
 export function CanvasView() {
   const editor = useEditor();
-  const { doc, zoom, tool, color, version, commit, checkpoint, bus } = editor;
+  const { doc, zoom, tool, color, bgColor, version, commit, checkpoint, bus } = editor;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
@@ -79,6 +79,9 @@ export function CanvasView() {
         case "fill":
           if (!preview) doc.floodFill(x, y, color);
           break;
+        case "gradient":
+          if (!preview) doc.gradientLinear(drag.startX, drag.startY, x, y, color, bgColor);
+          break;
         case "picker":
           if (!preview) {
             const p = doc.getPixel(x, y);
@@ -90,7 +93,7 @@ export function CanvasView() {
           break;
       }
     },
-    [tool, doc, color, editor, bus],
+    [tool, doc, color, bgColor, editor, bus],
   );
 
   const onPointerDown = useCallback(
@@ -136,7 +139,8 @@ export function CanvasView() {
         tool === "rect" ||
         tool === "fillrect" ||
         tool === "ellipse" ||
-        tool === "fillellipse"
+        tool === "fillellipse" ||
+        tool === "gradient"
       ) {
         applyStroke(x, y, drag, false);
         commit();

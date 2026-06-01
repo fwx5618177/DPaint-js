@@ -6,6 +6,7 @@ export type ToolId =
   | "ellipse"
   | "fillellipse"
   | "fill"
+  | "gradient"
   | "picker";
 
 export interface ToolDef {
@@ -26,6 +27,7 @@ export const TOOLS: ToolDef[] = [
   { id: "ellipse", label: "Ellipse", glyph: "◯", shortcut: "e", hint: "Ellipse outline" },
   { id: "fillellipse", label: "Filled ellipse", glyph: "⬤", shortcut: "o", hint: "Filled ellipse" },
   { id: "fill", label: "Fill", glyph: "🪣", shortcut: "f", hint: "Flood fill" },
+  { id: "gradient", label: "Gradient", glyph: "🌈", shortcut: "g", hint: "Linear gradient (fore→back)" },
   { id: "picker", label: "Picker", glyph: "💧", shortcut: "k", hint: "Pick colour" },
 ];
 

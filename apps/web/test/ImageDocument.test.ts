@@ -120,6 +120,33 @@ describe("ImageDocument drawEllipse", () => {
   });
 });
 
+describe("ImageDocument gradientLinear", () => {
+  it("fills a horizontal black→white gradient", () => {
+    const doc = newDoc(5, 1);
+    doc.gradientLinear(0, 0, 4, 0, [0, 0, 0], [255, 255, 255]);
+    expect(doc.getPixel(0, 0)).toEqual([0, 0, 0, 255]);
+    expect(doc.getPixel(4, 0)).toEqual([255, 255, 255, 255]);
+    const mid = doc.getPixel(2, 0)!;
+    expect(mid[0]).toBeGreaterThan(100);
+    expect(mid[0]).toBeLessThan(160); // ~128
+  });
+
+  it("clamps beyond the endpoints", () => {
+    const doc = newDoc(4, 1);
+    // gradient vector only spans x=1..2; x=0 clamps to A, x=3 clamps to B
+    doc.gradientLinear(1, 0, 2, 0, [10, 10, 10], [200, 200, 200]);
+    expect(doc.getPixel(0, 0)).toEqual([10, 10, 10, 255]);
+    expect(doc.getPixel(3, 0)).toEqual([200, 200, 200, 255]);
+  });
+
+  it("fills with the start colour for a zero-length vector", () => {
+    const doc = newDoc(2, 2);
+    doc.gradientLinear(0, 0, 0, 0, [7, 8, 9], [200, 100, 50]);
+    expect(doc.getPixel(0, 0)).toEqual([7, 8, 9, 255]);
+    expect(doc.getPixel(1, 1)).toEqual([7, 8, 9, 255]);
+  });
+});
+
 describe("ImageDocument floodFill", () => {
   it("fills a contiguous region", () => {
     const doc = newDoc(4, 4);

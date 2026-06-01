@@ -111,24 +111,26 @@ It is kept **temporarily** as a reference + fallback while the port proceeds; it
 will be deleted once the React app reaches feature parity.
 
 ## Migration status
-Ported to TypeScript with tests:
-- [x] event bus, command/event enums, user settings (`@dpaint/core`)
-- [x] colour maths, CRC-32, binary stream, text utils (`@dpaint/util`)
-- [x] ByteRun1/PackBits codec, file-format detection (`@dpaint/fileformats`)
-- [x] zlib (deflate/inflate) + PNG encode/decode (`@dpaint/fileformats`)
-- [x] LZW codec + GIF decode/encode (`@dpaint/fileformats`)
-- [x] colour quantization, median-cut palettes, ordered + Floyd–Steinberg dither, colour-cycling (`@dpaint/imaging`)
-- [x] IFF/ILBM decoder + encoder — indexed planar, ByteRun1, EHB, HAM6/HAM8 (`@dpaint/fileformats`)
-- [x] PSD reader — merged composite, 8-bit grayscale/RGB, raw + RLE (`@dpaint/fileformats`)
-- [x] pure image effects: brightness/contrast/posterise/threshold/box-blur (`@dpaint/imaging`)
-- [x] raster document, layers, drawing tools, transforms/effects, undo/redo (`@dpaint/web`)
-- [x] PNG + GIF + IFF + PSD + JSON import; PNG + GIF + IFF + JSON export; palette/dither/effects
+**File formats** (all ported to TS, tested):
+- [x] PNG (zlib via CompressionStream), GIF + animated GIF (LZW), IFF/ILBM
+  (indexed/EHB/HAM6/HAM8/24-bit, read + write), PSD (composite), DEGAS/NeoChrome,
+  Aseprite, classic Amiga icon, JSON project — read/write where applicable
+- [x] format detection, ByteRun1/PackBits, CRC-32
 
-- [x] Amiga-style colour-cycling animation (non-destructive preview, `@dpaint/web`)
+**Editor** (`@dpaint/web`):
+- [x] multi-layer document, multi-frame animation + timeline
+- [x] tools: select, pencil, line, rect/ellipse (outline+filled), fill, gradient,
+  airbrush, smudge, text, colour picker
+- [x] selection + clipboard (copy/cut/paste/select-all), undo/redo
+- [x] transforms (flip, resize, crop) and effects (invert/greyscale/posterise/
+  threshold/blur/offset/median-smooth/sharpen)
+- [x] colour reduction: quantize, median-cut palettes, ordered + Floyd–Steinberg
+  dither, palette-from-image, 12-bit/9-bit hardware depth, EHB, colour cycling
 
-Still living only in `apps/legacy/` (to be ported next):
-- [ ] IFF SHAM/interlace read; PSD layers/write
-- [ ] niche UI panels (ADF disk browser, gallery) and the external Amiga emulator
+Still living only in `apps/legacy/` (niche / lower priority):
+- [ ] IFF SHAM per-scanline + ANIM read; HAM write; PSD layers/write
+- [ ] ADF (Amiga disk) browser, gallery panel, random decorative filters
+- [ ] the external Amiga emulator (its files are not in this repository)
 
 ## Documentation
 Documentation can be found at https://dpaint.app/docs/

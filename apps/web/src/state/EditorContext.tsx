@@ -23,6 +23,9 @@ import {
   quantizeToPalette,
   floydSteinberg,
   indicesToRGBA,
+  posterize,
+  threshold,
+  boxBlur,
 } from "@dpaint/imaging";
 import { ImageDocument, type DocumentSnapshot } from "../model/ImageDocument";
 import { History } from "../model/History";
@@ -74,6 +77,10 @@ export interface EditorApi {
   /** Colour reduction: derive the palette from the image, or dither to it. */
   paletteFromImage: () => void;
   ditherImage: () => void;
+  /** Pixel effects applied to the active layer. */
+  posterizeImage: () => void;
+  thresholdImage: () => void;
+  blurImage: () => void;
 
   /** Image transforms (all layers) and layer effects, each an undo checkpoint. */
   flipHorizontal: () => void;
@@ -203,6 +210,25 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     checkpoint();
   }, [checkpoint]);
 
+  const posterizeImage = useCallback(() => {
+    const layer = docRef.current.activeLayer;
+    layer.data.set(posterize(layer.data, 4));
+    checkpoint();
+  }, [checkpoint]);
+
+  const thresholdImage = useCallback(() => {
+    const layer = docRef.current.activeLayer;
+    layer.data.set(threshold(layer.data, 128));
+    checkpoint();
+  }, [checkpoint]);
+
+  const blurImage = useCallback(() => {
+    const doc = docRef.current;
+    const layer = doc.activeLayer;
+    layer.data.set(boxBlur(layer.data, doc.width, doc.height, 1));
+    checkpoint();
+  }, [checkpoint]);
+
   const loadImageBytes = useCallback(
     async (bytes: Uint8Array, name = "") => {
       const format = detectFormat(bytes, name);
@@ -262,6 +288,9 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       loadImageBytes,
       paletteFromImage,
       ditherImage,
+      posterizeImage,
+      thresholdImage,
+      blurImage,
       flipHorizontal,
       flipVertical,
       invert,
@@ -287,6 +316,9 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       loadImageBytes,
       paletteFromImage,
       ditherImage,
+      posterizeImage,
+      thresholdImage,
+      blurImage,
       flipHorizontal,
       flipVertical,
       invert,

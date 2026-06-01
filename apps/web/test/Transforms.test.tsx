@@ -12,6 +12,18 @@ describe("Image transforms & effects menu", () => {
     expect(screen.getByTestId("menu-grayscale")).toBeInTheDocument();
   });
 
+  it("exposes pixel-effect controls that run as undoable steps", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    for (const id of ["menu-posterize", "menu-threshold", "menu-blur"]) {
+      expect(screen.getByTestId(id)).toBeInTheDocument();
+    }
+    await user.click(screen.getByTestId("menu-posterize"));
+    await user.click(screen.getByTestId("menu-threshold"));
+    await user.click(screen.getByTestId("menu-blur"));
+    expect(screen.getByTestId("menu-undo")).toBeEnabled();
+  });
+
   it("a flip creates an undoable checkpoint", async () => {
     const user = userEvent.setup();
     render(<App />);

@@ -19,6 +19,9 @@ export function MenuBar() {
     loadImageBytes,
     paletteFromImage,
     ditherImage,
+    posterizeImage,
+    thresholdImage,
+    blurImage,
     invert,
     grayscale,
   } = useEditor();
@@ -160,6 +163,15 @@ export function MenuBar() {
       </button>
       <button type="button" data-testid="menu-grayscale" onClick={grayscale}>
         Greyscale
+      </button>
+      <button type="button" data-testid="menu-posterize" onClick={posterizeImage}>
+        Posterise
+      </button>
+      <button type="button" data-testid="menu-threshold" onClick={thresholdImage}>
+        Threshold
+      </button>
+      <button type="button" data-testid="menu-blur" onClick={blurImage}>
+        Blur
       </button>
       <button
         type="button"

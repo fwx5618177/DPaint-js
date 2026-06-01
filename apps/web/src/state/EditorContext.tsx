@@ -16,6 +16,7 @@ import {
   decodeGIF,
   encodeGIF,
   decodeILBM,
+  encodeILBM,
 } from "@dpaint/fileformats";
 import {
   buildPaletteFromImage,
@@ -65,6 +66,8 @@ export interface EditorApi {
   exportPNG: () => Promise<Uint8Array>;
   /** Encode the flattened document as a (quantized) GIF. */
   exportGIF: () => Uint8Array;
+  /** Encode the flattened document as a (quantized) Amiga IFF/ILBM. */
+  exportILBM: () => Uint8Array;
   /** Load an image file (PNG or GIF) into a new document. Returns true on success. */
   loadImageBytes: (bytes: Uint8Array, name?: string) => Promise<boolean>;
 
@@ -174,6 +177,14 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     return encodeGIF({ width: doc.width, height: doc.height, pixels, palette });
   }, []);
 
+  const exportILBM = useCallback(() => {
+    const doc = docRef.current;
+    const composite = doc.composite();
+    const palette = doc.palette.length ? doc.palette : buildPaletteFromImage(composite, 32);
+    const pixels = quantizeToPalette(composite, palette);
+    return encodeILBM({ width: doc.width, height: doc.height, pixels, palette });
+  }, []);
+
   const paletteFromImage = useCallback(() => {
     const doc = docRef.current;
     doc.palette = buildPaletteFromImage(doc.composite(), 16);
@@ -247,6 +258,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       loadProject,
       exportPNG,
       exportGIF,
+      exportILBM,
       loadImageBytes,
       paletteFromImage,
       ditherImage,
@@ -271,6 +283,7 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       loadProject,
       exportPNG,
       exportGIF,
+      exportILBM,
       loadImageBytes,
       paletteFromImage,
       ditherImage,

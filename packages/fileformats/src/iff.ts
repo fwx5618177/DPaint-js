@@ -169,5 +169,85 @@ export function decodeILBM(bytes: Uint8Array): DecodedILBM {
   return { width, height, numPlanes, palette, mode, data };
 }
 
-const IFF = { decodeILBM };
+export interface ILBMEncodeInput {
+  width: number;
+  height: number;
+  /** Palette index per pixel, width*height. */
+  pixels: ArrayLike<number>;
+  palette: ColorArray[];
+}
+
+function planesNeeded(paletteLength: number): number {
+  let planes = 1;
+  while (1 << planes < paletteLength) planes++;
+  return planes;
+}
+
+/**
+ * Encode an indexed image as an uncompressed ILBM (FORM/ILBM with
+ * BMHD + CMAP + BODY). Round-trips with {@link decodeILBM}.
+ */
+export function encodeILBM(input: ILBMEncodeInput): Uint8Array {
+  const { width, height, pixels, palette } = input;
+  const numPlanes = planesNeeded(palette.length);
+  const rowBytes = ((width + 15) >> 4) << 1;
+  const bodySize = rowBytes * numPlanes * height;
+
+  const cmapSize = palette.length * 3;
+  const cmapPad = cmapSize & 1;
+
+  const formContent =
+    4 /* ILBM */ + (8 + 20) /* BMHD */ + (8 + cmapSize + cmapPad) + (8 + bodySize);
+  const total = 8 + formContent;
+  const f = new BinaryStream(new ArrayBuffer(total), true);
+
+  f.writeString("FORM");
+  f.writeUint(formContent);
+  f.writeString("ILBM");
+
+  f.writeString("BMHD");
+  f.writeUint(20);
+  f.writeWord(width);
+  f.writeWord(height);
+  f.writeWord(0); // x
+  f.writeWord(0); // y
+  f.writeUbyte(numPlanes);
+  f.writeUbyte(0); // mask
+  f.writeUbyte(0); // compression: none
+  f.writeUbyte(0); // pad
+  f.writeWord(0); // transparent colour
+  f.writeUbyte(1); // xAspect
+  f.writeUbyte(1); // yAspect
+  f.writeWord(width); // page width
+  f.writeWord(height); // page height
+
+  f.writeString("CMAP");
+  f.writeUint(cmapSize);
+  for (const c of palette) {
+    f.writeUbyte(c[0]!);
+    f.writeUbyte(c[1]!);
+    f.writeUbyte(c[2]!);
+  }
+  if (cmapPad) f.writeUbyte(0);
+
+  f.writeString("BODY");
+  f.writeUint(bodySize);
+  const row = new Uint8Array(rowBytes * numPlanes);
+  for (let y = 0; y < height; y++) {
+    row.fill(0);
+    for (let x = 0; x < width; x++) {
+      const pixel = pixels[y * width + x]! & 0xff;
+      const byteIndex = x >> 3;
+      const bit = 0x80 >> (x & 7);
+      for (let p = 0; p < numPlanes; p++) {
+        if (pixel & (1 << p)) row[p * rowBytes + byteIndex] |= bit;
+      }
+    }
+    f.writeByteArray(row);
+  }
+
+  return new Uint8Array(f.buffer);
+}
+
+const IFF = { decodeILBM, encodeILBM };
 export default IFF;

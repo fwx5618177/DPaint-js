@@ -2,8 +2,9 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { BinaryStream } from "@dpaint/util";
-import { decodeILBM } from "../src/iff.js";
+import { BinaryStream, type ColorArray } from "@dpaint/util";
+import { decodeILBM, encodeILBM } from "../src/iff.js";
+import { detectFormat } from "../src/detect.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtures = resolve(here, "fixtures");
@@ -75,6 +76,51 @@ describe("decodeILBM — synthetic indexed image", () => {
 
   it("rejects non-IFF input", () => {
     expect(() => decodeILBM(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]))).toThrow();
+  });
+});
+
+describe("encodeILBM round-trip", () => {
+  const PALETTE: ColorArray[] = [
+    [0, 0, 0],
+    [255, 0, 0],
+    [0, 255, 0],
+    [0, 0, 255],
+    [255, 255, 0],
+    [0, 255, 255],
+    [255, 0, 255],
+    [255, 255, 255],
+  ];
+
+  it("produces a FORM/ILBM recognised by detectFormat", () => {
+    const ilbm = encodeILBM({ width: 2, height: 2, pixels: [0, 1, 2, 3], palette: PALETTE });
+    expect(detectFormat(ilbm)).toBe("ILBM");
+  });
+
+  it("round-trips indexed pixels through encode → decode", () => {
+    const width = 13; // deliberately not a multiple of 16 (exercises row padding)
+    const height = 5;
+    const pixels = Array.from({ length: width * height }, (_, i) => i % PALETTE.length);
+    const decoded = decodeILBM(encodeILBM({ width, height, pixels, palette: PALETTE }));
+
+    expect(decoded.width).toBe(width);
+    expect(decoded.height).toBe(height);
+    for (let i = 0; i < width * height; i++) {
+      const expected = PALETTE[i % PALETTE.length]!;
+      const o = i * 4;
+      expect([decoded.data[o], decoded.data[o + 1], decoded.data[o + 2], decoded.data[o + 3]]).toEqual([
+        expected[0],
+        expected[1],
+        expected[2],
+        255,
+      ]);
+    }
+  });
+
+  it("preserves the palette", () => {
+    const decoded = decodeILBM(
+      encodeILBM({ width: 1, height: 1, pixels: [0], palette: PALETTE }),
+    );
+    expect(decoded.palette).toEqual(PALETTE);
   });
 });
 

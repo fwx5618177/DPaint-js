@@ -15,6 +15,7 @@ export function MenuBar() {
     loadProject,
     exportPNG,
     exportGIF,
+    exportILBM,
     loadImageBytes,
     paletteFromImage,
     ditherImage,
@@ -42,6 +43,10 @@ export function MenuBar() {
 
   const handleExportGIF = () => {
     download(exportGIF() as unknown as BlobPart, "untitled.gif", "image/gif");
+  };
+
+  const handleExportILBM = () => {
+    download(exportILBM() as unknown as BlobPart, "untitled.iff", "image/x-ilbm");
   };
 
   const handleLoadFile = async (file: File) => {
@@ -80,6 +85,9 @@ export function MenuBar() {
       </button>
       <button type="button" data-testid="menu-export-gif" onClick={handleExportGIF}>
         GIF
+      </button>
+      <button type="button" data-testid="menu-export-iff" onClick={handleExportILBM}>
+        IFF
       </button>
       <button
         type="button"

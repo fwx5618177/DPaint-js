@@ -116,12 +116,12 @@ Ported to TypeScript with tests:
 - [x] zlib (deflate/inflate) + PNG encode/decode (`@dpaint/fileformats`)
 - [x] LZW codec + GIF decode/encode (`@dpaint/fileformats`)
 - [x] colour quantization, median-cut palettes, ordered + Floyd–Steinberg dither (`@dpaint/imaging`)
-- [x] IFF/ILBM decoder — indexed planar, ByteRun1, EHB, HAM6/HAM8 (`@dpaint/fileformats`)
+- [x] IFF/ILBM decoder + encoder — indexed planar, ByteRun1, EHB, HAM6/HAM8 (`@dpaint/fileformats`)
 - [x] raster document, layers, drawing tools, transforms/effects, undo/redo (`@dpaint/web`)
-- [x] PNG + GIF + IFF + JSON import; PNG + GIF + JSON export; palette-from-image + dither
+- [x] PNG + GIF + IFF + JSON import; PNG + GIF + IFF + JSON export; palette-from-image + dither
 
 Still living only in `legacy/` (to be ported next):
-- [ ] IFF write + SHAM/24-bit/interlace read; PSD parser
+- [ ] IFF SHAM/24-bit/interlace read; PSD parser
 - [ ] `alchemy` effects/filters
 - [ ] advanced UI panels (colour-cycling, ADF browser, gallery, Amiga emulator)
 

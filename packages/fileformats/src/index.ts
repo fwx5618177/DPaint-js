@@ -13,5 +13,5 @@ export * as LZWCodec from "./lzw.js";
 export { decodeGIF, encodeGIF, default as GIF } from "./gif.js";
 export type { DecodedGIF, GifFrame, GifEncodeInput } from "./gif.js";
 
-export { decodeILBM, default as IFF } from "./iff.js";
-export type { DecodedILBM, ILBMMode } from "./iff.js";
+export { decodeILBM, encodeILBM, default as IFF } from "./iff.js";
+export type { DecodedILBM, ILBMMode, ILBMEncodeInput } from "./iff.js";

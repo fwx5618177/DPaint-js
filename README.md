@@ -94,7 +94,8 @@ The migrated code currently ships **151 passing tests at ~87% coverage**.
 
 ### Legacy app
 The original plain-JS app now lives under `legacy/` (`dpaint-legacy` workspace
-package). Run it with:
+package) — see [`legacy/README.md`](./legacy/README.md) for why it exists and
+when it will be removed. Run it with:
 
 | Command | Description |
 | --- | --- |
@@ -102,7 +103,21 @@ package). Run it with:
 | `pnpm legacy:build` | Build the legacy app to `legacy/dist` |
 | `pnpm legacy:test` | Run the original Playwright end-to-end suite |
 
-It is kept as a reference while the TypeScript port proceeds module by module.
+It is kept **temporarily** as a reference + fallback while the port proceeds; it
+will be deleted once the React app reaches feature parity.
+
+## Migration status
+Ported to TypeScript with tests:
+- [x] event bus, command/event enums, user settings (`@dpaint/core`)
+- [x] colour maths, CRC-32, binary stream, text utils (`@dpaint/util`)
+- [x] ByteRun1/PackBits codec, file-format detection (`@dpaint/fileformats`)
+- [x] raster document, layers, drawing tools, undo/redo, save/load (`@dpaint/web`)
+
+Still living only in `legacy/` (to be ported next):
+- [ ] full IFF / PNG / PSD / GIF read-write parsers
+- [ ] `imageProcessing` + colour quantizers
+- [ ] `alchemy` effects/filters
+- [ ] advanced UI panels (dither, colour-cycling, ADF browser, gallery, Amiga emulator)
 
 ## Documentation
 Documentation can be found at https://dpaint.app/docs/

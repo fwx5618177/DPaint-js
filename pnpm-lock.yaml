@@ -72,9 +72,6 @@ importers:
       http-server:
         specifier: ^14.1.1
         version: 14.1.1
-      playwright:
-        specifier: ^1.58.2
-        version: 1.60.0
       vite:
         specifier: ^5.4.21
         version: 5.4.21(@types/node@22.19.19)

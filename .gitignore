@@ -17,5 +17,7 @@ playwright-report/
 test-results/
 
 # editor / os
+.idea/
+.vscode/
 .DS_Store
 *.log

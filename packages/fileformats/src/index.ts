@@ -18,3 +18,9 @@ export type { DecodedILBM, ILBMMode, ILBMEncodeInput, ILBM24EncodeInput } from "
 
 export { decodePSD, default as PSD } from "./psd.js";
 export type { DecodedPSD } from "./psd.js";
+
+export { decodeDEGAS, decodeNeo, default as DEGAS } from "./degas.js";
+export type { DecodedDEGAS } from "./degas.js";
+
+export { decodeAseprite, default as Aseprite } from "./aseprite.js";
+export type { DecodedAseprite, AsepriteLayer } from "./aseprite.js";

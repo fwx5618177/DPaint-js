@@ -65,6 +65,12 @@ export function MenuBar() {
         name.endsWith(".ilbm") ||
         name.endsWith(".lbm") ||
         name.endsWith(".psd") ||
+        name.endsWith(".pi1") ||
+        name.endsWith(".pi2") ||
+        name.endsWith(".pi3") ||
+        name.endsWith(".neo") ||
+        name.endsWith(".ase") ||
+        name.endsWith(".aseprite") ||
         file.type === "image/png" ||
         file.type === "image/gif";
       if (isImage) {
@@ -106,7 +112,7 @@ export function MenuBar() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,application/json,.png,image/png,.gif,image/gif,.iff,.ilbm,.lbm,.psd"
+        accept=".json,application/json,.png,image/png,.gif,image/gif,.iff,.ilbm,.lbm,.psd,.pi1,.pi2,.pi3,.neo,.ase,.aseprite"
         data-testid="file-input"
         style={{ display: "none" }}
         onChange={(e) => {

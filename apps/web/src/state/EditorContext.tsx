@@ -19,6 +19,9 @@ import {
   decodeILBM,
   encodeILBM,
   decodePSD,
+  decodeDEGAS,
+  decodeNeo,
+  decodeAseprite,
 } from "@dpaint/fileformats";
 import {
   buildPaletteFromImage,
@@ -327,6 +330,17 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
         if (ilbm.palette.length) palette = ilbm.palette;
       } else if (format === "PSD") {
         image = decodePSD(bytes);
+      } else if (format === "DEGAS") {
+        const d = decodeDEGAS(bytes);
+        image = { width: d.width, height: d.height, data: d.data };
+        if (d.palette.length) palette = d.palette;
+      } else if (format === "NEO") {
+        const d = decodeNeo(bytes);
+        image = { width: d.width, height: d.height, data: d.data };
+        if (d.palette.length) palette = d.palette;
+      } else if (format === "ASEPRITE") {
+        const a = await decodeAseprite(bytes);
+        image = { width: a.width, height: a.height, data: a.data };
       }
       if (!image) return false;
       docRef.current = ImageDocument.fromRGBA(image.width, image.height, image.data, palette);

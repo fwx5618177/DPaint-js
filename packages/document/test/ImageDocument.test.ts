@@ -405,6 +405,38 @@ describe("ImageDocument resize / crop", () => {
   });
 });
 
+describe("ImageDocument rotate90", () => {
+  it("rotates clockwise, swapping dimensions", () => {
+    const doc = newDoc(3, 2);
+    doc.setPixel(0, 0, [1, 1, 1]);
+    const r = doc.rotated90(false);
+    expect(r.width).toBe(2);
+    expect(r.height).toBe(3);
+    expect(r.getPixel(1, 0)).toEqual([1, 1, 1, 255]);
+  });
+
+  it("rotates counter-clockwise", () => {
+    const doc = newDoc(3, 2);
+    doc.setPixel(0, 0, [2, 2, 2]);
+    const r = doc.rotated90(true);
+    expect(r.width).toBe(2);
+    expect(r.height).toBe(3);
+    expect(r.getPixel(0, 2)).toEqual([2, 2, 2, 255]);
+  });
+
+  it("four clockwise rotations return to the original", () => {
+    const doc = newDoc(4, 3);
+    doc.setPixel(2, 1, [9, 8, 7]);
+    let r = doc.rotated90(false);
+    r = r.rotated90(false);
+    r = r.rotated90(false);
+    r = r.rotated90(false);
+    expect(r.width).toBe(4);
+    expect(r.height).toBe(3);
+    expect(r.getPixel(2, 1)).toEqual([9, 8, 7, 255]);
+  });
+});
+
 describe("ImageDocument transforms", () => {
   it("flipHorizontal mirrors pixels left-to-right across all layers", () => {
     const doc = newDoc(4, 1);

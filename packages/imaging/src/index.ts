@@ -43,3 +43,4 @@ export {
   type RippleOptions,
   type DotsOptions,
 } from "./artistic.js";
+export { bicubicResize, areaDownscale, resample, matte } from "./resample.js";

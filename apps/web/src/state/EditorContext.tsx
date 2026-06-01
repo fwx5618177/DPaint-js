@@ -47,6 +47,7 @@ import {
   lines,
   web,
   ripples,
+  matte,
   type ColorRange,
   type ColorDepth,
 } from "@dpaint/imaging";
@@ -86,6 +87,12 @@ export interface EditorApi {
   resize: (width: number, height: number) => void;
   /** Scale the document by a factor (clamped to >= 1px). */
   scale: (factor: number) => void;
+  /** Quality resample by a factor (area-average / bicubic). */
+  resampleScale: (factor: number) => void;
+  /** Rotate the whole document 90° (left = counter-clockwise). */
+  rotate: (left: boolean) => void;
+  /** Alpha-matte (defringe) the active layer. */
+  matteImage: () => void;
   swapColors: () => void;
 
   /** Record the current document state as an undo checkpoint. */
@@ -251,6 +258,34 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     },
     [resize],
   );
+
+  const resampleScale = useCallback(
+    (factor: number) => {
+      const doc = docRef.current;
+      docRef.current = doc.resampled(
+        Math.max(1, Math.round(doc.width * factor)),
+        Math.max(1, Math.round(doc.height * factor)),
+      );
+      historyRef.current.reset(docRef.current.snapshot());
+      commit();
+    },
+    [commit],
+  );
+
+  const rotate = useCallback(
+    (left: boolean) => {
+      docRef.current = docRef.current.rotated90(left);
+      historyRef.current.reset(docRef.current.snapshot());
+      commit();
+    },
+    [commit],
+  );
+
+  const matteImage = useCallback(() => {
+    const doc = docRef.current;
+    doc.activeLayer.data.set(matte(doc.activeLayer.data, doc.width, doc.height));
+    checkpoint();
+  }, [checkpoint]);
 
   const addFrame = useCallback(() => {
     docRef.current.addFrame();
@@ -582,6 +617,9 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       newImage,
       resize,
       scale,
+      resampleScale,
+      rotate,
+      matteImage,
       swapColors,
       checkpoint,
       undo,
@@ -636,6 +674,9 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       newImage,
       resize,
       scale,
+      resampleScale,
+      rotate,
+      matteImage,
       swapColors,
       checkpoint,
       undo,
@@ -709,6 +750,8 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     bus.on(COMMAND.ADDFRAME, () => addFrame());
     bus.on(COMMAND.DELETEFRAME, () => deleteFrame());
     bus.on(COMMAND.DUPLICATEFRAME, () => duplicateFrame());
+    bus.on(COMMAND.ROTATE, () => rotate(false));
+    bus.on(COMMAND.RESAMPLE, () => resampleScale(0.5));
     bus.on(COMMAND.COLORDEPTH12, () => reduceToDepth(4));
     bus.on(COMMAND.COLORDEPTH9, () => reduceToDepth(3));
   }

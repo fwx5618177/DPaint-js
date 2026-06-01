@@ -12,6 +12,20 @@ describe("Image transforms & effects menu", () => {
     expect(screen.getByTestId("menu-grayscale")).toBeInTheDocument();
   });
 
+  it("rotates 90° (swapping dimensions), resamples and mattes", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    expect(screen.getByTestId("status-size")).toHaveTextContent("64×48");
+    await user.click(screen.getByTestId("menu-rotate-right"));
+    expect(screen.getByTestId("status-size")).toHaveTextContent("48×64");
+    await user.click(screen.getByTestId("menu-rotate-left"));
+    expect(screen.getByTestId("status-size")).toHaveTextContent("64×48");
+    await user.click(screen.getByTestId("menu-resample-down"));
+    expect(screen.getByTestId("status-size")).toHaveTextContent("32×24");
+    await user.click(screen.getByTestId("menu-matte"));
+    expect(screen.getByTestId("menu-undo")).toBeEnabled();
+  });
+
   it("exposes pixel-effect controls that run as undoable steps", async () => {
     const user = userEvent.setup();
     render(<App />);

@@ -1,4 +1,5 @@
 import type { ColorArray } from "@dpaint/primitives";
+import { resample } from "@dpaint/imaging";
 
 /** An RGBA pixel, channels 0-255. */
 export type RGBA = [number, number, number, number];
@@ -574,6 +575,40 @@ export class ImageDocument {
           dst[dstOff + 1] = src[so + 1]!;
           dst[dstOff + 2] = src[so + 2]!;
           dst[dstOff + 3] = src[so + 3]!;
+        }
+      }
+      return dst;
+    });
+  }
+
+  /**
+   * Return a new document rotated 90° (all frames). `left` rotates
+   * counter-clockwise, otherwise clockwise. Width and height swap.
+   */
+  resampled(newWidth: number, newHeight: number): ImageDocument {
+    return this.transformAllFrames(newWidth, newHeight, (src) =>
+      resample(src, this.width, this.height, newWidth, newHeight),
+    );
+  }
+
+  /** Return a new document rotated 90° (all frames); `left` = counter-clockwise. */
+  rotated90(left: boolean): ImageDocument {
+    const W = this.width;
+    const H = this.height;
+    const newW = H;
+    const newH = W;
+    return this.transformAllFrames(newW, newH, (src) => {
+      const dst = new Uint8ClampedArray(newW * newH * 4);
+      for (let dy = 0; dy < newH; dy++) {
+        for (let dx = 0; dx < newW; dx++) {
+          const sx = left ? W - 1 - dy : dy;
+          const sy = left ? dx : H - 1 - dx;
+          const so = (sy * W + sx) * 4;
+          const dofs = (dy * newW + dx) * 4;
+          dst[dofs] = src[so]!;
+          dst[dofs + 1] = src[so + 1]!;
+          dst[dofs + 2] = src[so + 2]!;
+          dst[dofs + 3] = src[so + 3]!;
         }
       }
       return dst;

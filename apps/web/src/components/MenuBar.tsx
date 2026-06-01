@@ -8,6 +8,9 @@ export function MenuBar() {
     bus,
     newImage,
     scale,
+    resampleScale,
+    rotate,
+    matteImage,
     zoom,
     setZoom,
     canUndo,
@@ -260,6 +263,33 @@ export function MenuBar() {
         onClick={() => scale(0.5)}
       >
         ½×
+      </button>
+      <button
+        type="button"
+        data-testid="menu-resample-down"
+        title="Halve the image size with smooth resampling"
+        onClick={() => resampleScale(0.5)}
+      >
+        ½ smooth
+      </button>
+      <button
+        type="button"
+        data-testid="menu-rotate-left"
+        title="Rotate 90° counter-clockwise"
+        onClick={() => rotate(true)}
+      >
+        ⟲
+      </button>
+      <button
+        type="button"
+        data-testid="menu-rotate-right"
+        title="Rotate 90° clockwise"
+        onClick={() => rotate(false)}
+      >
+        ⟳
+      </button>
+      <button type="button" data-testid="menu-matte" title="Defringe transparent edges" onClick={matteImage}>
+        Matte
       </button>
       <button
         type="button"

@@ -178,6 +178,56 @@ describe("ImageDocument layers", () => {
   });
 });
 
+describe("ImageDocument resize / crop", () => {
+  it("doubles the size with nearest-neighbour (each pixel becomes a 2×2 block)", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [10, 0, 0]);
+    doc.setPixel(1, 0, [0, 20, 0]);
+    const big = doc.resized(4, 4);
+    expect(big.width).toBe(4);
+    expect(big.height).toBe(4);
+    // top-left 2×2 block all from source (0,0)
+    expect(big.getPixel(0, 0)).toEqual([10, 0, 0, 255]);
+    expect(big.getPixel(1, 1)).toEqual([10, 0, 0, 255]);
+    expect(big.getPixel(2, 0)).toEqual([0, 20, 0, 255]);
+  });
+
+  it("returns a new document and leaves the original untouched", () => {
+    const doc = newDoc(4, 4);
+    doc.setPixel(0, 0, [9, 9, 9]);
+    const small = doc.resized(2, 2);
+    expect(small).not.toBe(doc);
+    expect(doc.width).toBe(4); // original unchanged
+    expect(small.width).toBe(2);
+  });
+
+  it("preserves layers and palette on resize", () => {
+    const doc = newDoc(2, 2);
+    doc.addLayer("Top");
+    const big = doc.resized(4, 4);
+    expect(big.layers).toHaveLength(2);
+    expect(big.layers[1]!.name).toBe("Top");
+    expect(big.palette).toEqual(doc.palette);
+  });
+
+  it("crops to a sub-rectangle", () => {
+    const doc = newDoc(4, 4);
+    doc.setPixel(2, 1, [1, 2, 3]);
+    const c = doc.cropped(2, 1, 2, 2);
+    expect(c.width).toBe(2);
+    expect(c.height).toBe(2);
+    expect(c.getPixel(0, 0)).toEqual([1, 2, 3, 255]);
+  });
+
+  it("leaves out-of-bounds crop regions transparent", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [5, 5, 5]);
+    const c = doc.cropped(1, 1, 3, 3); // extends past the edge
+    expect(c.width).toBe(3);
+    expect(c.getPixel(2, 2)).toEqual([0, 0, 0, 0]);
+  });
+});
+
 describe("ImageDocument transforms", () => {
   it("flipHorizontal mirrors pixels left-to-right across all layers", () => {
     const doc = newDoc(4, 1);

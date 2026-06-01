@@ -53,6 +53,10 @@ export interface EditorApi {
   /** Re-render after an in-place mutation of the document. */
   commit: () => void;
   newImage: (width: number, height: number) => void;
+  /** Resize the whole document (nearest-neighbour). */
+  resize: (width: number, height: number) => void;
+  /** Scale the document by a factor (clamped to >= 1px). */
+  scale: (factor: number) => void;
   swapColors: () => void;
 
   /** Record the current document state as an undo checkpoint. */
@@ -160,6 +164,25 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     docRef.current.grayscale();
     checkpoint();
   }, [checkpoint]);
+
+  const resize = useCallback(
+    (w: number, h: number) => {
+      const width = Math.max(1, Math.round(w));
+      const height = Math.max(1, Math.round(h));
+      docRef.current = docRef.current.resized(width, height);
+      historyRef.current.reset(docRef.current.snapshot());
+      commit();
+    },
+    [commit],
+  );
+
+  const scale = useCallback(
+    (factor: number) => {
+      const doc = docRef.current;
+      resize(doc.width * factor, doc.height * factor);
+    },
+    [resize],
+  );
 
   const serialize = useCallback(() => serializeToString(docRef.current), []);
 
@@ -277,6 +300,8 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       setZoom,
       commit,
       newImage,
+      resize,
+      scale,
       swapColors,
       checkpoint,
       undo,
@@ -307,6 +332,8 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       zoom,
       commit,
       newImage,
+      resize,
+      scale,
       swapColors,
       checkpoint,
       undo,

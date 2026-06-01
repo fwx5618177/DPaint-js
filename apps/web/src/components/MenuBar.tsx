@@ -7,6 +7,7 @@ export function MenuBar() {
   const {
     bus,
     newImage,
+    scale,
     zoom,
     setZoom,
     canUndo,
@@ -173,6 +174,23 @@ export function MenuBar() {
       </button>
       <button type="button" data-testid="menu-blur" onClick={blurImage}>
         Blur
+      </button>
+      <span className="menu-sep" aria-hidden="true" />
+      <button
+        type="button"
+        data-testid="menu-scale-up"
+        title="Double the image size"
+        onClick={() => scale(2)}
+      >
+        2×
+      </button>
+      <button
+        type="button"
+        data-testid="menu-scale-down"
+        title="Halve the image size"
+        onClick={() => scale(0.5)}
+      >
+        ½×
       </button>
       <button
         type="button"

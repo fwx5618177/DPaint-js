@@ -330,6 +330,72 @@ export class ImageDocument {
     layer.data.fill(0);
   }
 
+  /**
+   * Return a new document scaled to `newWidth`×`newHeight` using nearest-neighbour
+   * sampling (preserves hard pixel edges — appropriate for pixel art). Layer
+   * structure, names, visibility, opacity and the palette are carried over.
+   */
+  resized(newWidth: number, newHeight: number): ImageDocument {
+    const out = new ImageDocument({
+      width: newWidth,
+      height: newHeight,
+      palette: this.palette.map((c) => c.slice()),
+    });
+    out.layers = this.layers.map((layer, index) => {
+      const dst = index === 0 ? out.layers[0]! : out.createLayer(layer.name);
+      dst.name = layer.name;
+      dst.visible = layer.visible;
+      dst.opacity = layer.opacity;
+      for (let y = 0; y < newHeight; y++) {
+        const sy = Math.min(this.height - 1, Math.floor((y * this.height) / newHeight));
+        for (let x = 0; x < newWidth; x++) {
+          const sx = Math.min(this.width - 1, Math.floor((x * this.width) / newWidth));
+          const so = (sy * this.width + sx) * 4;
+          const dstOff = (y * newWidth + x) * 4;
+          dst.data[dstOff] = layer.data[so]!;
+          dst.data[dstOff + 1] = layer.data[so + 1]!;
+          dst.data[dstOff + 2] = layer.data[so + 2]!;
+          dst.data[dstOff + 3] = layer.data[so + 3]!;
+        }
+      }
+      return dst;
+    });
+    out.activeLayerIndex = Math.min(this.activeLayerIndex, out.layers.length - 1);
+    return out;
+  }
+
+  /** Return a new document cropped to the given rectangle. */
+  cropped(x: number, y: number, w: number, h: number): ImageDocument {
+    const out = new ImageDocument({
+      width: w,
+      height: h,
+      palette: this.palette.map((c) => c.slice()),
+    });
+    out.layers = this.layers.map((layer, index) => {
+      const dst = index === 0 ? out.layers[0]! : out.createLayer(layer.name);
+      dst.name = layer.name;
+      dst.visible = layer.visible;
+      dst.opacity = layer.opacity;
+      for (let yy = 0; yy < h; yy++) {
+        const sy = y + yy;
+        if (sy < 0 || sy >= this.height) continue;
+        for (let xx = 0; xx < w; xx++) {
+          const sx = x + xx;
+          if (sx < 0 || sx >= this.width) continue;
+          const so = (sy * this.width + sx) * 4;
+          const dstOff = (yy * w + xx) * 4;
+          dst.data[dstOff] = layer.data[so]!;
+          dst.data[dstOff + 1] = layer.data[so + 1]!;
+          dst.data[dstOff + 2] = layer.data[so + 2]!;
+          dst.data[dstOff + 3] = layer.data[so + 3]!;
+        }
+      }
+      return dst;
+    });
+    out.activeLayerIndex = Math.min(this.activeLayerIndex, out.layers.length - 1);
+    return out;
+  }
+
   /** Flip every layer horizontally (mirror left↔right), preserving dimensions. */
   flipHorizontal(): void {
     for (const layer of this.layers) {

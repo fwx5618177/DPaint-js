@@ -94,6 +94,15 @@ describe("Menu / zoom commands via EventBus", () => {
     await user.click(screen.getByTestId("menu-newlayer"));
     expect(screen.getByTestId("status-layers")).toHaveTextContent("2 layer(s)");
   });
+
+  it("scales the image up and down", async () => {
+    const { user } = setup();
+    expect(screen.getByTestId("status-size")).toHaveTextContent("64×48");
+    await user.click(screen.getByTestId("menu-scale-up"));
+    expect(screen.getByTestId("status-size")).toHaveTextContent("128×96");
+    await user.click(screen.getByTestId("menu-scale-down"));
+    expect(screen.getByTestId("status-size")).toHaveTextContent("64×48");
+  });
 });
 
 describe("Layer panel", () => {

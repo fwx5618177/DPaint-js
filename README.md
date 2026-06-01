@@ -87,6 +87,7 @@ The migrated code currently ships **151 passing tests at ~87% coverage**.
 - Multi-layer raster document with alpha compositing
 - Tools: pencil, line, rectangle (outline/filled), ellipse (outline/filled),
   flood fill, and colour picker
+- Image resize/scale (nearest-neighbour) and crop
 - 16-colour palette with foreground/background swatches and swap
 - Layer panel (add / remove / reorder-by-activation / visibility toggle)
 - Image transforms (flip horizontal/vertical) and colour effects (invert, greyscale)

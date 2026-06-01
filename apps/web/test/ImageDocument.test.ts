@@ -205,6 +205,55 @@ describe("ImageDocument layers", () => {
   });
 });
 
+describe("ImageDocument selection / clipboard", () => {
+  it("copies a region into a detached buffer", () => {
+    const doc = newDoc(4, 4);
+    doc.setPixel(1, 1, [10, 20, 30]);
+    doc.setPixel(2, 1, [40, 50, 60]);
+    const region = doc.copyRegion({ x: 1, y: 1, width: 2, height: 1 });
+    expect(region.width).toBe(2);
+    expect(region.height).toBe(1);
+    expect(Array.from(region.data)).toEqual([10, 20, 30, 255, 40, 50, 60, 255]);
+  });
+
+  it("clamps regions to the document bounds", () => {
+    const doc = newDoc(2, 2);
+    const region = doc.copyRegion({ x: 1, y: 1, width: 5, height: 5 });
+    expect(region.width).toBe(1);
+    expect(region.height).toBe(1);
+  });
+
+  it("clears a region to transparent", () => {
+    const doc = newDoc(3, 3);
+    doc.drawRect(0, 0, 3, 3, [9, 9, 9], true);
+    doc.clearRegion({ x: 1, y: 1, width: 1, height: 1 });
+    expect(doc.getPixel(1, 1)).toEqual([0, 0, 0, 0]);
+    expect(doc.getPixel(0, 0)).toEqual([9, 9, 9, 255]); // outside untouched
+  });
+
+  it("stamps a region (alpha-over) at an offset", () => {
+    const doc = newDoc(4, 4);
+    const region = {
+      width: 1,
+      height: 1,
+      data: new Uint8ClampedArray([100, 110, 120, 255]),
+    };
+    doc.stampRegion(region, 2, 3);
+    expect(doc.getPixel(2, 3)).toEqual([100, 110, 120, 255]);
+  });
+
+  it("cut = copy then clear round-trips via stamp", () => {
+    const doc = newDoc(4, 4);
+    doc.setPixel(0, 0, [7, 8, 9]);
+    const sel = { x: 0, y: 0, width: 1, height: 1 };
+    const clip = doc.copyRegion(sel);
+    doc.clearRegion(sel);
+    expect(doc.getPixel(0, 0)).toEqual([0, 0, 0, 0]);
+    doc.stampRegion(clip, 3, 3);
+    expect(doc.getPixel(3, 3)).toEqual([7, 8, 9, 255]);
+  });
+});
+
 describe("ImageDocument resize / crop", () => {
   it("doubles the size with nearest-neighbour (each pixel becomes a 2×2 block)", () => {
     const doc = newDoc(2, 2);

@@ -35,7 +35,12 @@ import {
   cyclePalette,
   type ColorRange,
 } from "@dpaint/imaging";
-import { ImageDocument, type DocumentSnapshot, type Layer } from "../model/ImageDocument";
+import {
+  ImageDocument,
+  type DocumentSnapshot,
+  type Layer,
+  type PixelRegion,
+} from "../model/ImageDocument";
 import { History } from "../model/History";
 import { serializeToString, deserializeFromString } from "../model/serialization";
 import type { ToolId } from "../model/tools";
@@ -98,6 +103,14 @@ export interface EditorApi {
   colorCycleActive: boolean;
   toggleColorCycle: () => void;
 
+  /** Selection + clipboard. */
+  hasClipboard: boolean;
+  selectAll: () => void;
+  deselect: () => void;
+  copySelection: () => void;
+  cutSelection: () => void;
+  paste: () => void;
+
   /** Image transforms (all layers) and layer effects, each an undo checkpoint. */
   flipHorizontal: () => void;
   flipVertical: () => void;
@@ -121,6 +134,8 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
   const [bgColor, setBgColor] = useState<ColorArray>([0, 0, 0]);
   const [zoom, setZoom] = useState(8);
   const [colorCycleActive, setColorCycleActive] = useState(false);
+  const [hasClipboard, setHasClipboard] = useState(false);
+  const clipboardRef = useRef<PixelRegion | null>(null);
   const cycleRef = useRef<{
     id: ReturnType<typeof setInterval>;
     layer: Layer;
@@ -200,6 +215,42 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     },
     [resize],
   );
+
+  const selectAll = useCallback(() => {
+    const doc = docRef.current;
+    doc.selection = { x: 0, y: 0, width: doc.width, height: doc.height };
+    commit();
+  }, [commit]);
+
+  const deselect = useCallback(() => {
+    docRef.current.selection = null;
+    commit();
+  }, [commit]);
+
+  const copySelection = useCallback(() => {
+    const doc = docRef.current;
+    const sel = doc.selection ?? { x: 0, y: 0, width: doc.width, height: doc.height };
+    clipboardRef.current = doc.copyRegion(sel);
+    setHasClipboard(true);
+  }, []);
+
+  const cutSelection = useCallback(() => {
+    const doc = docRef.current;
+    const sel = doc.selection ?? { x: 0, y: 0, width: doc.width, height: doc.height };
+    clipboardRef.current = doc.copyRegion(sel);
+    setHasClipboard(true);
+    doc.clearRegion(sel);
+    checkpoint();
+  }, [checkpoint]);
+
+  const paste = useCallback(() => {
+    const region = clipboardRef.current;
+    if (!region) return;
+    const doc = docRef.current;
+    const at = doc.selection ?? { x: 0, y: 0, width: region.width, height: region.height };
+    doc.stampRegion(region, at.x, at.y);
+    checkpoint();
+  }, [checkpoint]);
 
   const serialize = useCallback(() => serializeToString(docRef.current), []);
 
@@ -396,6 +447,12 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       blurImage,
       colorCycleActive,
       toggleColorCycle,
+      hasClipboard,
+      selectAll,
+      deselect,
+      copySelection,
+      cutSelection,
+      paste,
       flipHorizontal,
       flipVertical,
       invert,
@@ -428,6 +485,12 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
       blurImage,
       colorCycleActive,
       toggleColorCycle,
+      hasClipboard,
+      selectAll,
+      deselect,
+      copySelection,
+      cutSelection,
+      paste,
       flipHorizontal,
       flipVertical,
       invert,
@@ -458,6 +521,11 @@ export function EditorProvider({ width = 64, height = 48, children }: EditorProv
     bus.on(COMMAND.FLIPVERTICAL, () => flipVertical());
     bus.on(COMMAND.PALETTEFROMIMAGE, () => paletteFromImage());
     bus.on(COMMAND.CYCLEPALETTE, () => toggleColorCycle());
+    bus.on(COMMAND.SELECTALL, () => selectAll());
+    bus.on(COMMAND.CLEARSELECTION, () => deselect());
+    bus.on(COMMAND.COPY, () => copySelection());
+    bus.on(COMMAND.CUTTOLAYER, () => cutSelection());
+    bus.on(COMMAND.PASTE, () => paste());
   }
 
   return <EditorContext.Provider value={api}>{children}</EditorContext.Provider>;

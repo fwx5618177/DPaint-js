@@ -17,6 +17,21 @@ export interface ImageDocumentOptions {
   palette?: ColorArray[];
 }
 
+/** A rectangular selection in document coordinates. */
+export interface SelectionRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** A detached pixel region (clipboard / cut content). */
+export interface PixelRegion {
+  width: number;
+  height: number;
+  data: Uint8ClampedArray; // RGBA
+}
+
 /** Immutable, deep-copied capture of an {@link ImageDocument}'s editable state. */
 export interface DocumentSnapshot {
   width: number;
@@ -43,6 +58,8 @@ export class ImageDocument {
   palette: ColorArray[];
   layers: Layer[];
   activeLayerIndex = 0;
+  /** Current rectangular selection, or null for "whole image". */
+  selection: SelectionRect | null = null;
 
   constructor(options: ImageDocumentOptions) {
     this.width = options.width;
@@ -364,6 +381,72 @@ export class ImageDocument {
 
   clear(layer: Layer = this.activeLayer): void {
     layer.data.fill(0);
+  }
+
+  /** Intersect a rectangle with the document bounds (may yield zero size). */
+  clampRect(rect: SelectionRect): SelectionRect {
+    const x0 = Math.max(0, Math.floor(rect.x));
+    const y0 = Math.max(0, Math.floor(rect.y));
+    const x1 = Math.min(this.width, Math.floor(rect.x + rect.width));
+    const y1 = Math.min(this.height, Math.floor(rect.y + rect.height));
+    return { x: x0, y: y0, width: Math.max(0, x1 - x0), height: Math.max(0, y1 - y0) };
+  }
+
+  /** Copy a rectangular region of a layer into a detached RGBA region. */
+  copyRegion(rect: SelectionRect, layer: Layer = this.activeLayer): PixelRegion {
+    const r = this.clampRect(rect);
+    const data = new Uint8ClampedArray(r.width * r.height * 4);
+    for (let y = 0; y < r.height; y++) {
+      for (let x = 0; x < r.width; x++) {
+        const so = ((r.y + y) * this.width + (r.x + x)) * 4;
+        const dofs = (y * r.width + x) * 4;
+        data[dofs] = layer.data[so]!;
+        data[dofs + 1] = layer.data[so + 1]!;
+        data[dofs + 2] = layer.data[so + 2]!;
+        data[dofs + 3] = layer.data[so + 3]!;
+      }
+    }
+    return { width: r.width, height: r.height, data };
+  }
+
+  /** Clear (make transparent) a rectangular region of a layer. */
+  clearRegion(rect: SelectionRect, layer: Layer = this.activeLayer): void {
+    const r = this.clampRect(rect);
+    for (let y = 0; y < r.height; y++) {
+      for (let x = 0; x < r.width; x++) {
+        const o = ((r.y + y) * this.width + (r.x + x)) * 4;
+        layer.data[o] = 0;
+        layer.data[o + 1] = 0;
+        layer.data[o + 2] = 0;
+        layer.data[o + 3] = 0;
+      }
+    }
+  }
+
+  /** Alpha-over a detached region onto a layer at (dx, dy). */
+  stampRegion(region: PixelRegion, dx: number, dy: number, layer: Layer = this.activeLayer): void {
+    dx = Math.round(dx);
+    dy = Math.round(dy);
+    for (let y = 0; y < region.height; y++) {
+      const ty = dy + y;
+      if (ty < 0 || ty >= this.height) continue;
+      for (let x = 0; x < region.width; x++) {
+        const tx = dx + x;
+        if (tx < 0 || tx >= this.width) continue;
+        const so = (y * region.width + x) * 4;
+        const sa = region.data[so + 3]! / 255;
+        if (sa <= 0) continue;
+        const to = (ty * this.width + tx) * 4;
+        const da = layer.data[to + 3]! / 255;
+        const outA = sa + da * (1 - sa);
+        if (outA <= 0) continue;
+        for (let c = 0; c < 3; c++) {
+          layer.data[to + c] =
+            (region.data[so + c]! * sa + layer.data[to + c]! * da * (1 - sa)) / outA;
+        }
+        layer.data[to + 3] = outA * 255;
+      }
+    }
   }
 
   /**

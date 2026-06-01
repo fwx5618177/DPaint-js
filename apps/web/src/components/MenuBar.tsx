@@ -25,6 +25,10 @@ export function MenuBar() {
     blurImage,
     colorCycleActive,
     toggleColorCycle,
+    hasClipboard,
+    copySelection,
+    cutSelection,
+    paste,
     invert,
     grayscale,
   } = useEditor();
@@ -151,6 +155,16 @@ export function MenuBar() {
         onClick={() => bus.trigger(COMMAND.REDO)}
       >
         Redo
+      </button>
+      <span className="menu-sep" aria-hidden="true" />
+      <button type="button" data-testid="menu-copy" onClick={copySelection}>
+        Copy
+      </button>
+      <button type="button" data-testid="menu-cut" onClick={cutSelection}>
+        Cut
+      </button>
+      <button type="button" data-testid="menu-paste" disabled={!hasClipboard} onClick={paste}>
+        Paste
       </button>
       <span className="menu-sep" aria-hidden="true" />
       <button

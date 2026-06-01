@@ -47,7 +47,7 @@ describe("Tool selection", () => {
 
   it("exposes the full tool set including ellipse + gradient tools", () => {
     setup();
-    expect(within(screen.getByTestId("toolbar")).getAllByRole("button")).toHaveLength(9);
+    expect(within(screen.getByTestId("toolbar")).getAllByRole("button")).toHaveLength(10);
     expect(screen.getByTestId("tool-ellipse")).toBeInTheDocument();
     expect(screen.getByTestId("tool-fillellipse")).toBeInTheDocument();
     expect(screen.getByTestId("tool-gradient")).toBeInTheDocument();

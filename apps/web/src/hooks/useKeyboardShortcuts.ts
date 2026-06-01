@@ -23,7 +23,27 @@ export function useKeyboardShortcuts() {
         bus.trigger(COMMAND.REDO);
         return;
       }
-      if (e.ctrlKey || e.metaKey) return;
+      // Selection / clipboard
+      if (e.ctrlKey || e.metaKey) {
+        if (key === "a") {
+          e.preventDefault();
+          bus.trigger(COMMAND.SELECTALL);
+        } else if (key === "c") {
+          e.preventDefault();
+          bus.trigger(COMMAND.COPY);
+        } else if (key === "x") {
+          e.preventDefault();
+          bus.trigger(COMMAND.CUTTOLAYER);
+        } else if (key === "v") {
+          e.preventDefault();
+          bus.trigger(COMMAND.PASTE);
+        }
+        return;
+      }
+      if (key === "escape") {
+        bus.trigger(COMMAND.CLEARSELECTION);
+        return;
+      }
 
       const toolId = TOOL_BY_SHORTCUT[key];
       if (toolId) {

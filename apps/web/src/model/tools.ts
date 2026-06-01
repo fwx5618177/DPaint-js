@@ -1,4 +1,5 @@
 export type ToolId =
+  | "select"
   | "pencil"
   | "line"
   | "rect"
@@ -20,6 +21,7 @@ export interface ToolDef {
 }
 
 export const TOOLS: ToolDef[] = [
+  { id: "select", label: "Select", glyph: "▱", shortcut: "s", hint: "Rectangular selection" },
   { id: "pencil", label: "Pencil", glyph: "✏️", shortcut: "p", hint: "Freehand draw" },
   { id: "line", label: "Line", glyph: "📏", shortcut: "l", hint: "Straight line" },
   { id: "rect", label: "Rectangle", glyph: "▭", shortcut: "r", hint: "Rectangle outline" },

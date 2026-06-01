@@ -33,6 +33,19 @@ export function CanvasView() {
     tmp.getContext("2d")!.putImageData(image, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(tmp, 0, 0, doc.width * zoom, doc.height * zoom);
+
+    // selection overlay (marching-ants style dashed rectangle)
+    const sel = doc.selection;
+    if (sel && sel.width > 0 && sel.height > 0) {
+      ctx.save();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#000";
+      ctx.strokeRect(sel.x * zoom + 0.5, sel.y * zoom + 0.5, sel.width * zoom, sel.height * zoom);
+      ctx.strokeStyle = "#fff";
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(sel.x * zoom + 0.5, sel.y * zoom + 0.5, sel.width * zoom, sel.height * zoom);
+      ctx.restore();
+    }
   }, [doc, zoom]);
 
   useEffect(() => {
@@ -96,6 +109,20 @@ export function CanvasView() {
     [tool, doc, color, bgColor, editor, bus],
   );
 
+  const setSelectionFromDrag = useCallback(
+    (drag: DragState, x: number, y: number) => {
+      const sx = Math.min(drag.startX, x);
+      const sy = Math.min(drag.startY, y);
+      doc.selection = {
+        x: sx,
+        y: sy,
+        width: Math.abs(x - drag.startX) + 1,
+        height: Math.abs(y - drag.startY) + 1,
+      };
+    },
+    [doc],
+  );
+
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -108,9 +135,12 @@ export function CanvasView() {
       } else if (tool === "fill" || tool === "picker") {
         applyStroke(x, y, drag, false);
         commit();
+      } else if (tool === "select") {
+        setSelectionFromDrag(drag, x, y);
+        commit();
       }
     },
-    [toDocCoords, tool, doc, color, commit, applyStroke],
+    [toDocCoords, tool, doc, color, commit, applyStroke, setSelectionFromDrag],
   );
 
   const onPointerMove = useCallback(
@@ -124,9 +154,12 @@ export function CanvasView() {
         drag.lastX = x;
         drag.lastY = y;
         commit();
+      } else if (tool === "select") {
+        setSelectionFromDrag(drag, x, y);
+        commit();
       }
     },
-    [toDocCoords, tool, applyStroke, commit],
+    [toDocCoords, tool, applyStroke, commit, setSelectionFromDrag],
   );
 
   const onPointerUp = useCallback(
@@ -144,12 +177,15 @@ export function CanvasView() {
       ) {
         applyStroke(x, y, drag, false);
         commit();
+      } else if (tool === "select") {
+        setSelectionFromDrag(drag, x, y);
+        commit();
       }
       dragRef.current = null;
-      // The picker does not mutate pixels, so it does not create an undo step.
-      if (tool !== "picker") checkpoint();
+      // The picker and select tools do not mutate pixels (no undo step).
+      if (tool !== "picker" && tool !== "select") checkpoint();
     },
-    [toDocCoords, tool, applyStroke, commit, checkpoint],
+    [toDocCoords, tool, applyStroke, commit, checkpoint, setSelectionFromDrag],
   );
 
   return (

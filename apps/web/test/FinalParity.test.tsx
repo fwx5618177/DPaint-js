@@ -52,7 +52,7 @@ describe("Final parity features", () => {
     fireEvent.pointerUp(canvas, { clientX: 0, clientY: 0, pointerId: 1 });
     // add a layer, then pick the layer at the painted pixel -> should select layer 0
     fireEvent.click(screen.getByTestId("layer-add"));
-    fireEvent.click(screen.getByTestId("tool-layerpick"));
+    fireEvent.click(screen.getByTestId("menu-item-Select Layer"));
     fireEvent.pointerDown(canvas, { clientX: 0, clientY: 0, pointerId: 1 });
     expect(screen.getByTestId("layer-row-0")).toHaveClass("active");
   });

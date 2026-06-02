@@ -121,9 +121,11 @@ export function CanvasView() {
   const toDocCoords = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>): { x: number; y: number } => {
       const rect = e.currentTarget.getBoundingClientRect();
+      const displayWidth = rect.width || e.currentTarget.width || 1;
+      const displayHeight = rect.height || e.currentTarget.height || 1;
       return {
-        x: Math.floor(((e.clientX - rect.left) / Math.max(1, rect.width)) * doc.width),
-        y: Math.floor(((e.clientY - rect.top) / Math.max(1, rect.height)) * doc.height),
+        x: Math.floor(((e.clientX - rect.left) / displayWidth) * doc.width),
+        y: Math.floor(((e.clientY - rect.top) / displayHeight) * doc.height),
       };
     },
     [doc.width, doc.height],

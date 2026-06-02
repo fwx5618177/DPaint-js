@@ -321,8 +321,16 @@ export function Menu() {
     {
       label: "Recorder",
       children: [
-        { label: "Start", action: () => { if (!recording) toggleRecording(); }, testid: "menu-record-start" },
+        { label: "Start", action: () => toggleRecording(), checked: recording, testid: "menu-record" },
         { label: "Stop", action: () => { if (recording) toggleRecording(); }, testid: "menu-record-stop" },
+        {
+          label: "Export Recording",
+          action: () => {
+            const gif = exportRecording();
+            if (gif) download(gif as unknown as BlobPart, "recording.gif", "image/gif");
+          },
+          testid: "menu-export-rec",
+        },
       ],
     },
     {

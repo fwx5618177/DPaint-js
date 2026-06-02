@@ -13,7 +13,7 @@ describe("Colour cycling", () => {
 
   it("exposes a Cycle toggle that is off by default", () => {
     render(<App />);
-    const btn = screen.getByTestId("menu-cycle");
+    const btn = screen.getByTestId("cycle-toggle");
     expect(btn).toHaveAttribute("aria-pressed", "false");
   });
 
@@ -22,7 +22,7 @@ describe("Colour cycling", () => {
     render(<App />);
     drawDot();
 
-    const btn = screen.getByTestId("menu-cycle");
+    const btn = screen.getByTestId("cycle-toggle");
     act(() => {
       btn.click();
     });
@@ -32,11 +32,11 @@ describe("Colour cycling", () => {
     act(() => {
       vi.advanceTimersByTime(500);
     });
-    expect(screen.getByTestId("menu-cycle")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("cycle-toggle")).toHaveAttribute("aria-pressed", "true");
 
     act(() => {
-      screen.getByTestId("menu-cycle").click();
+      screen.getByTestId("cycle-toggle").click();
     });
-    expect(screen.getByTestId("menu-cycle")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByTestId("cycle-toggle")).toHaveAttribute("aria-pressed", "false");
   });
 });

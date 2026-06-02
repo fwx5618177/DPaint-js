@@ -1,0 +1,340 @@
+// App stylesheet: the original DPaint.js design, ported verbatim from the legacy
+// SCSS (apps/legacy/_style). Only the tech stack changed (SCSS via Vite, image
+// urls rewritten to /_img/) — the visual design is unchanged.
+@import "./legacy/main.scss";
+
+// React mounts the app into #root (between <body> and .container); make the
+// whole chain fill the viewport exactly like the legacy <body> did.
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+// ── Layout bridges ──────────────────────────────────────────────────────────
+// The legacy app positioned/sized the sidepanel with a JS layout engine. It
+// lives between the left toolbar and the editor, and the editor moves right by
+// the stored panel width plus the draggable splitter gutter.
+// Panel `top`/`height` (and therefore the whole absolute `.inner`/`.panelcontent`
+// /`.layer`/`.frame` layout from `_sidepanel.scss`) are driven by inline styles
+// from React, faithfully reproducing what the legacy engine did at runtime.
+.sidepanel.active {
+  left: 70px;
+  right: auto;
+  width: var(--sidepanel-width, 175px);
+}
+
+.container.withsidepanel .splitpanel {
+  left: calc(75px + var(--sidepanel-width, 175px));
+  right: 0;
+}
+
+// status bar: space the info segments
+.statusbar [data-testid^="status-"] {
+  margin: 0 8px;
+}
+
+// ── Floating tooltip (legacy `info` hover system) ───────────────────────────
+.floating-tooltip {
+  position: fixed;
+  z-index: 2000;
+  max-width: 220px;
+  padding: 3px 7px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: $menu-text-color-high;
+  background: $button-background-dark;
+  border: 1px solid #000;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  white-space: pre-line;
+}
+
+// ── Sidepanel: small React-only additions on top of the legacy chrome ───────
+.sidepanel {
+  // the panel `.caption` already labels each panel — hide any component's own
+  // duplicate header text we kept for the test ids.
+  .layer-panel-header,
+  .frames-panel-header,
+  .effects-header,
+  .bitplanes-header {
+    display: none;
+  }
+
+  // compact per-row layer action cluster (legacy hides these in a context menu;
+  // we surface them as small icon buttons styled like the legacy row glyphs).
+  .layer {
+    .layer-name {
+      display: block;
+      line-height: 13px;
+      padding-right: 96px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .layer-actions {
+      position: absolute;
+      right: 22px;
+      top: 3px;
+      display: none;
+      gap: 1px;
+
+      .button.icon {
+        width: 15px;
+        height: 16px;
+        line-height: 16px;
+        text-align: center;
+        font-size: 10px;
+        color: $menu-text-color-dim;
+        background: $button-background-medium;
+        border: 1px solid #000;
+        cursor: pointer;
+
+        &:hover {
+          color: $menu-text-color-high;
+          background: $panel-background-active;
+        }
+        &[data-disabled="true"] {
+          opacity: 0.3;
+          pointer-events: none;
+        }
+      }
+    }
+
+    &:hover .layer-actions,
+    &.active .layer-actions {
+      display: flex;
+    }
+  }
+
+  // secondary action bars (flatten / mask / frame ops). Legacy hides these in
+  // context menus; we anchor them at the panel bottom so they don't overlap the
+  // absolutely-positioned `.panelcontent` (the layer list / frame strip).
+  .panelfoot {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 22px;
+    display: flex;
+    gap: 2px;
+    padding: 1px 2px;
+    box-sizing: border-box;
+    background: $panel-background-color;
+
+    .button.full {
+      flex: 1;
+      margin: 0;
+      line-height: 18px;
+      min-width: 0;
+    }
+  }
+
+  .panel.layers .panelcontent {
+    bottom: 24px;
+  }
+  .panel.layers .layer-foot {
+    bottom: 0;
+  }
+  .panel.frames .panelcontent {
+    bottom: 48px;
+  }
+  .panel.frames .frame-ops {
+    bottom: 24px;
+  }
+  .panel.frames .frame-convert {
+    bottom: 0;
+  }
+
+  // grid panel yes/no toggle (legacy `.yesno`)
+  .yesno {
+    display: inline-flex;
+    border: 1px solid #000;
+    cursor: pointer;
+    margin-left: 4px;
+
+    .option {
+      padding: 1px 8px;
+      font-size: 11px;
+      background: $button-background-dark;
+      color: $menu-text-color-dim;
+
+      &:first-child {
+        border-right: 1px solid #000;
+      }
+    }
+
+    &.selected .option:first-child,
+    &:not(.selected) .option:last-child {
+      background: $positive-background;
+      color: $active-color;
+    }
+  }
+
+  // colour-cycle numeric inputs
+  .cycle-range {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    color: $menu-text-color-dim;
+    margin-left: 4px;
+
+    input {
+      width: 38px;
+      background: #1c1c1c;
+      color: #8f8f8f;
+      border: 1px solid #000;
+      font-size: 10px;
+    }
+  }
+
+  // the palette-tools button rows: lay the legacy `.button`s out in a wrap
+  .palettebuttons,
+  .palette-multi,
+  .palette-presets,
+  .color-cycle {
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+
+  // generic `.button` used in the palette/effects panels (legacy `.button.full`
+  // look but inline so several fit per row).
+  .subpanel .button {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 11px;
+    line-height: 16px;
+    color: $menu-text-color-dim;
+    background: $button-background-medium;
+    border: 1px solid #000;
+    cursor: pointer;
+
+    &:hover {
+      color: $menu-text-color-high;
+      background: $button-background-dark;
+    }
+    &.active,
+    &[aria-pressed="true"] {
+      background: $positive-background;
+      color: $active-color;
+      border-color: $active-color-dim;
+    }
+    &.disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+  }
+}
+
+// custom dither-pattern editor grid
+.dithereditor .inner {
+  padding: 10px;
+}
+.dither-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 28px);
+  grid-template-rows: repeat(4, 28px);
+  gap: 2px;
+}
+.dither-cell {
+  width: 28px;
+  height: 28px;
+  background: $button-background-dark;
+  border: 1px solid #000;
+  cursor: pointer;
+  &.on {
+    background: $active-color;
+  }
+}
+
+// toolbar palette swatch grid (legacy renders these as a small 4-col canvas grid
+// at the bottom of the toolbar; we reproduce the compact look with elements).
+.toolbar .button.icon.text,
+.toolbar .button.icon.layerselect {
+  display: none;
+}
+
+.toolbar .palettegrid {
+  margin-top: 2px;
+
+  .palette-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+  }
+  .palette-color-wrap {
+    position: relative;
+    display: block;
+    line-height: 0;
+  }
+  .palette-color {
+    width: 100%;
+    height: 13px;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  .palette-color-edit {
+    display: none;
+  }
+  .palette-actions {
+    display: none;
+    margin-top: 1px;
+    button {
+      flex: 1;
+      font-size: 11px;
+      background: $button-background-medium;
+      color: $menu-text-color;
+      border: 1px solid #000;
+      cursor: pointer;
+    }
+  }
+}
+
+// Canvas display: keep the canvas at its pixel size and centre it in the
+// scrollable viewport (higher specificity than legacy `.splitpanel .panel
+// .viewport` so the flexbox wins over the legacy `display:block`).
+.editor.splitpanel .panel .viewport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+.editor .canvaswrapper {
+  margin: auto;
+}
+.editor .canvascontainer {
+  position: relative;
+  display: inline-block;
+  width: auto;
+  height: auto;
+
+  .maincanvas {
+    position: static;
+    width: auto;
+    height: auto;
+    display: block;
+  }
+}
+.editor .canvas-coords {
+  position: absolute;
+  left: 4px;
+  bottom: 2px;
+  font-size: 11px;
+  color: $menu-text-color-dim;
+  pointer-events: none;
+}
+
+// split-screen: show the right panel as a second 50/50 view
+.container.split .editor .panel.left {
+  width: calc(50% - 2px);
+}
+.container.split .editor .panel.right {
+  display: block;
+  left: auto;
+  right: 0;
+  width: calc(50% - 2px);
+}

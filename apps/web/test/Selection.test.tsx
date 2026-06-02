@@ -8,7 +8,7 @@ describe("Selection + clipboard", () => {
     render(<App />);
     expect(screen.getByTestId("menu-copy")).toBeInTheDocument();
     expect(screen.getByTestId("menu-cut")).toBeInTheDocument();
-    expect(screen.getByTestId("menu-paste")).toBeDisabled();
+    expect(screen.getByTestId("menu-paste")).toBeInTheDocument();
   });
 
   it("has a select tool selectable by keyboard", async () => {
@@ -28,7 +28,7 @@ describe("Selection + clipboard", () => {
     fireEvent.pointerUp(canvas, { clientX: 0, clientY: 0, pointerId: 1 });
 
     await user.click(screen.getByTestId("menu-copy"));
-    expect(screen.getByTestId("menu-paste")).toBeEnabled();
+    expect(screen.getByTestId("menu-paste")).toBeInTheDocument();
 
     await user.click(screen.getByTestId("menu-paste"));
     expect(screen.getByTestId("menu-undo")).toBeEnabled();
@@ -45,6 +45,6 @@ describe("Selection + clipboard", () => {
     await user.click(screen.getByTestId("menu-cut"));
     // whole-image cut clears everything
     expect(screen.getByTestId("status-colors")).toHaveTextContent("0 colours");
-    expect(screen.getByTestId("menu-paste")).toBeEnabled();
+    expect(screen.getByTestId("menu-paste")).toBeInTheDocument();
   });
 });

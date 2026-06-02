@@ -10,6 +10,10 @@ export interface Layer {
   opacity: number; // 0..1
   /** RGBA pixel buffer, width*height*4. */
   data: Uint8ClampedArray;
+  /** Optional per-pixel alpha mask (length width*height, 0-255), or null. */
+  mask?: Uint8Array | null;
+  /** Whether the mask is applied during compositing (default true when present). */
+  maskEnabled?: boolean;
 }
 
 export interface ImageDocumentOptions {
@@ -44,6 +48,8 @@ export interface DocumentSnapshot {
     visible: boolean;
     opacity: number;
     data: Uint8ClampedArray;
+    mask?: Uint8Array | null;
+    maskEnabled?: boolean;
   }>;
 }
 
@@ -63,6 +69,17 @@ export class ImageDocument {
   activeLayerIndex = 0;
   /** Current rectangular selection, or null for "whole image". */
   selection: SelectionRect | null = null;
+  /**
+   * Optional per-pixel selection mask (length width*height, 0 or 255). When set,
+   * region operations (copy/clear) are restricted to the masked pixels; the
+   * {@link selection} rectangle is kept as its bounding box.
+   */
+  selectionMask: Uint8Array | null = null;
+  /**
+   * Optional drawing stencil: when set, pixels whose current colour matches this
+   * RGB are protected from drawing (DPaint "colour mask" / background stencil).
+   */
+  stencilColor: ColorArray | null = null;
 
   constructor(options: ImageDocumentOptions) {
     this.width = options.width;
@@ -107,6 +124,72 @@ export class ImageDocument {
     this.frames.splice(index, 1);
     this.activeFrameIndex = Math.min(this.activeFrameIndex, this.frames.length - 1);
     this.activeLayerIndex = Math.min(this.activeLayerIndex, this.layers.length - 1);
+  }
+
+  /** Clear all pixels of every layer in a frame (keeps the layer stack). */
+  clearFrame(index = this.activeFrameIndex): void {
+    const frame = this.frames[index];
+    if (!frame) return;
+    for (const layer of frame) layer.data.fill(0);
+  }
+
+  /** Move a frame to the end of the timeline. */
+  moveFrameToEnd(index = this.activeFrameIndex): void {
+    if (index < 0 || index >= this.frames.length) return;
+    const [frame] = this.frames.splice(index, 1);
+    this.frames.push(frame!);
+    this.activeFrameIndex = this.frames.length - 1;
+    this.activeLayerIndex = Math.min(this.activeLayerIndex, this.layers.length - 1);
+  }
+
+  /** Collapse every frame into a single frame, one layer per former frame. */
+  framesToLayers(): void {
+    const layers: Layer[] = this.frames.map((_, i) => ({
+      name: `Frame ${i + 1}`,
+      visible: true,
+      opacity: 1,
+      data: this.composite(i),
+    }));
+    this.frames = [layers];
+    this.activeFrameIndex = 0;
+    this.activeLayerIndex = 0;
+  }
+
+  /** Explode the active frame's layers into one frame each (bottom layer first). */
+  layersToFrames(): void {
+    this.frames = this.layers.map((layer) => [
+      { name: layer.name, visible: true, opacity: 1, data: new Uint8ClampedArray(layer.data) },
+    ]);
+    this.activeFrameIndex = 0;
+    this.activeLayerIndex = 0;
+  }
+
+  /** Build a new single-frame document tiling all frames horizontally (sprite sheet). */
+  toSpriteSheet(columns = this.frameCount): ImageDocument {
+    const cols = Math.max(1, Math.min(columns, this.frameCount));
+    const rows = Math.ceil(this.frameCount / cols);
+    const sheet = new ImageDocument({
+      width: this.width * cols,
+      height: this.height * rows,
+      palette: this.palette.map((c) => c.slice()),
+    });
+    const target = sheet.layers[0]!.data;
+    for (let f = 0; f < this.frameCount; f++) {
+      const frame = this.composite(f);
+      const ox = (f % cols) * this.width;
+      const oy = Math.floor(f / cols) * this.height;
+      for (let y = 0; y < this.height; y++) {
+        for (let x = 0; x < this.width; x++) {
+          const so = (y * this.width + x) * 4;
+          const to = ((oy + y) * sheet.width + (ox + x)) * 4;
+          target[to] = frame[so]!;
+          target[to + 1] = frame[so + 1]!;
+          target[to + 2] = frame[so + 2]!;
+          target[to + 3] = frame[so + 3]!;
+        }
+      }
+    }
+    return sheet;
   }
 
   goToFrame(index: number): void {
@@ -178,6 +261,142 @@ export class ImageDocument {
     this.activeLayerIndex = Math.min(this.activeLayerIndex, this.layers.length - 1);
   }
 
+  /** Insert a deep copy of a layer directly above it and make it active. */
+  duplicateLayer(index = this.activeLayerIndex): Layer {
+    const src = this.layers[index];
+    if (!src) return this.activeLayer;
+    const copy: Layer = {
+      name: `${src.name} copy`,
+      visible: src.visible,
+      opacity: src.opacity,
+      data: new Uint8ClampedArray(src.data),
+      mask: src.mask ? new Uint8Array(src.mask) : null,
+      maskEnabled: src.maskEnabled,
+    };
+    this.layers.splice(index + 1, 0, copy);
+    this.activeLayerIndex = index + 1;
+    return copy;
+  }
+
+  /** Move a layer up (towards the front) or down (towards the back). */
+  moveLayer(index: number, dir: "up" | "down"): void {
+    const target = dir === "up" ? index + 1 : index - 1;
+    if (index < 0 || index >= this.layers.length) return;
+    if (target < 0 || target >= this.layers.length) return;
+    const layers = this.layers;
+    [layers[index], layers[target]] = [layers[target]!, layers[index]!];
+    if (this.activeLayerIndex === index) this.activeLayerIndex = target;
+    else if (this.activeLayerIndex === target) this.activeLayerIndex = index;
+  }
+
+  /** Alpha-composite `upper` over `lower`, writing into `lower` (opacity baked in). */
+  private blendLayerInto(upper: Layer, lower: Layer): void {
+    const src = upper.data;
+    const dst = lower.data;
+    for (let i = 0; i < dst.length; i += 4) {
+      const sa = (src[i + 3]! / 255) * upper.opacity;
+      const da = (dst[i + 3]! / 255) * lower.opacity;
+      const outA = sa + da * (1 - sa);
+      if (outA <= 0) {
+        dst[i] = dst[i + 1] = dst[i + 2] = dst[i + 3] = 0;
+        continue;
+      }
+      for (let c = 0; c < 3; c++) {
+        dst[i + c] = (src[i + c]! * sa + dst[i + c]! * da * (1 - sa)) / outA;
+      }
+      dst[i + 3] = outA * 255;
+    }
+    lower.opacity = 1;
+  }
+
+  /** Merge a layer down into the one beneath it. */
+  mergeDown(index = this.activeLayerIndex): void {
+    if (index <= 0 || index >= this.layers.length) return;
+    const upper = this.layers[index]!;
+    const lower = this.layers[index - 1]!;
+    this.blendLayerInto(upper, lower);
+    this.layers.splice(index, 1);
+    this.activeLayerIndex = index - 1;
+  }
+
+  /** Copy the current selection's pixels into a new layer above the active one. */
+  copyToLayer(): Layer {
+    const sel = this.selection ?? { x: 0, y: 0, width: this.width, height: this.height };
+    const r = this.clampRect(sel);
+    const region = this.copyRegion(r);
+    const layer = this.addLayer("Floating");
+    this.stampRegion(region, r.x, r.y, layer);
+    return layer;
+  }
+
+  /** Index of the top-most visible layer with an opaque pixel at (x, y), or -1. */
+  topLayerAt(x: number, y: number): number {
+    if (!this.inBounds(x, y)) return -1;
+    const o = this.offset(x, y);
+    for (let i = this.layers.length - 1; i >= 0; i--) {
+      const layer = this.layers[i]!;
+      if (layer.visible && layer.data[o + 3]! > 0) return i;
+    }
+    return -1;
+  }
+
+  /** Collapse all layers of the active frame into a single layer. */
+  flatten(): void {
+    const flat: Layer = {
+      name: "Layer 1",
+      visible: true,
+      opacity: 1,
+      data: this.composite(),
+    };
+    this.layers = [flat];
+    this.activeLayerIndex = 0;
+  }
+
+  /** Attach a mask to a layer: `showAll` = fully opaque (255), else hidden (0). */
+  addLayerMask(showAll = true, index = this.activeLayerIndex): void {
+    const layer = this.layers[index];
+    if (!layer) return;
+    layer.mask = new Uint8Array(this.width * this.height).fill(showAll ? 255 : 0);
+    layer.maskEnabled = true;
+  }
+
+  deleteLayerMask(index = this.activeLayerIndex): void {
+    const layer = this.layers[index];
+    if (layer) {
+      layer.mask = null;
+      layer.maskEnabled = undefined;
+    }
+  }
+
+  /** Bake the mask into the layer's alpha, then drop the mask. */
+  applyLayerMask(index = this.activeLayerIndex): void {
+    const layer = this.layers[index];
+    if (!layer || !layer.mask) return;
+    const mask = layer.mask;
+    for (let i = 0; i < mask.length; i++) {
+      layer.data[i * 4 + 3] = (layer.data[i * 4 + 3]! * mask[i]!) / 255;
+    }
+    layer.mask = null;
+    layer.maskEnabled = undefined;
+  }
+
+  setLayerMaskEnabled(enabled: boolean, index = this.activeLayerIndex): void {
+    const layer = this.layers[index];
+    if (layer && layer.mask) layer.maskEnabled = enabled;
+  }
+
+  toggleLayerMask(index = this.activeLayerIndex): void {
+    const layer = this.layers[index];
+    if (layer && layer.mask) layer.maskEnabled = layer.maskEnabled === false;
+  }
+
+  /** Write a value (0-255) into a layer mask at a pixel (for mask painting). */
+  setMaskPixel(x: number, y: number, value: number, index = this.activeLayerIndex): void {
+    const layer = this.layers[index];
+    if (!layer || !layer.mask || !this.inBounds(x, y)) return;
+    layer.mask[y * this.width + x] = value;
+  }
+
   private inBounds(x: number, y: number): boolean {
     return x >= 0 && y >= 0 && x < this.width && y < this.height;
   }
@@ -195,6 +414,11 @@ export class ImageDocument {
   setPixel(x: number, y: number, color: ColorArray, layer: Layer = this.activeLayer): void {
     if (!this.inBounds(x, y)) return;
     const o = this.offset(x, y);
+    // colour-mask stencil: don't overwrite protected pixels
+    const s = this.stencilColor;
+    if (s && layer.data[o] === s[0] && layer.data[o + 1] === s[1] && layer.data[o + 2] === s[2]) {
+      return;
+    }
     layer.data[o] = color[0]!;
     layer.data[o + 1] = color[1]!;
     layer.data[o + 2] = color[2]!;
@@ -231,6 +455,40 @@ export class ImageDocument {
         err += dx;
         y0 += sy;
       }
+    }
+  }
+
+  /**
+   * Draw a quadratic arc from (x0,y0) to (x1,y1) that passes through the
+   * waypoint (mx,my) at its midpoint (the control point is derived so the curve
+   * bows through that point).
+   */
+  drawArc(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    mx: number,
+    my: number,
+    color: ColorArray,
+    layer: Layer = this.activeLayer,
+  ): void {
+    const cx = 2 * mx - 0.5 * x0 - 0.5 * x1;
+    const cy = 2 * my - 0.5 * y0 - 0.5 * y1;
+    const steps = Math.max(
+      Math.abs(x1 - x0) + Math.abs(y1 - y0) + Math.abs(cx - x0) + Math.abs(cy - y0),
+      8,
+    );
+    let px = x0;
+    let py = y0;
+    for (let s = 1; s <= steps; s++) {
+      const t = s / steps;
+      const it = 1 - t;
+      const x = Math.round(it * it * x0 + 2 * it * t * cx + t * t * x1);
+      const y = Math.round(it * it * y0 + 2 * it * t * cy + t * t * y1);
+      this.drawLine(px, py, x, y, color, layer);
+      px = x;
+      py = y;
     }
   }
 
@@ -349,6 +607,8 @@ export class ImageDocument {
         visible: l.visible,
         opacity: l.opacity,
         data: new Uint8ClampedArray(l.data),
+        mask: l.mask ? new Uint8Array(l.mask) : null,
+        maskEnabled: l.maskEnabled,
       })),
     };
   }
@@ -364,6 +624,8 @@ export class ImageDocument {
       visible: l.visible,
       opacity: l.opacity,
       data: new Uint8ClampedArray(l.data),
+      mask: l.mask ? new Uint8Array(l.mask) : null,
+      maskEnabled: l.maskEnabled,
     }));
     this.activeLayerIndex = Math.min(snapshot.activeLayerIndex, this.layers.length - 1);
   }
@@ -408,6 +670,127 @@ export class ImageDocument {
    * Airbrush: scatter `count` pixels of `color` within `radius` of (cx, cy),
    * uniformly over the disc. `rng` is injectable for deterministic tests.
    */
+  /** Tunable parametric brush. */
+  // size: diameter in px; softness 0..10 (edge falloff); opacity 0..1.
+  // roundness 0..1 (1 = circle, <1 = ellipse), rotated by `rotation` degrees.
+  paintDab(
+    cx: number,
+    cy: number,
+    color: ColorArray,
+    size: number,
+    softness: number,
+    opacity: number,
+    layer: Layer = this.activeLayer,
+    rotation = 0,
+    roundness = 1,
+  ): void {
+    const radius = Math.max(0.5, size / 2);
+    const inner = radius * (1 - Math.max(0, Math.min(10, softness)) / 10);
+    const rnd = Math.max(0.05, Math.min(1, roundness));
+    const rad = (rotation * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const x0 = Math.floor(cx - radius);
+    const x1 = Math.ceil(cx + radius);
+    const y0 = Math.floor(cy - radius);
+    const y1 = Math.ceil(cy + radius);
+    const r = color[0]!;
+    const g = color[1]!;
+    const b = color[2]!;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (!this.inBounds(x, y)) continue;
+        // rotate the offset into brush space; squash the minor axis by roundness
+        const ox = x + 0.5 - cx;
+        const oy = y + 0.5 - cy;
+        const bx = ox * cos + oy * sin;
+        const by = (-ox * sin + oy * cos) / rnd;
+        const d = Math.hypot(bx, by);
+        if (d > radius) continue;
+        let a = 1;
+        if (d > inner && radius > inner) a = 1 - (d - inner) / (radius - inner);
+        a *= opacity;
+        if (a <= 0) continue;
+        const o = this.offset(x, y);
+        const s = this.stencilColor;
+        if (s && layer.data[o] === s[0] && layer.data[o + 1] === s[1] && layer.data[o + 2] === s[2]) {
+          continue;
+        }
+        const da = (layer.data[o + 3]! / 255) * (1 - a);
+        const outA = a + da;
+        if (outA <= 0) continue;
+        layer.data[o] = (r * a + layer.data[o]! * da) / outA;
+        layer.data[o + 1] = (g * a + layer.data[o + 1]! * da) / outA;
+        layer.data[o + 2] = (b * a + layer.data[o + 2]! * da) / outA;
+        layer.data[o + 3] = outA * 255;
+      }
+    }
+  }
+
+  /** Erase a circular dab of diameter `size` back to full transparency. */
+  clearDab(cx: number, cy: number, size: number, layer: Layer = this.activeLayer): void {
+    const radius = Math.max(0.5, size / 2);
+    for (let y = Math.floor(cy - radius); y <= Math.ceil(cy + radius); y++) {
+      for (let x = Math.floor(cx - radius); x <= Math.ceil(cx + radius); x++) {
+        if (!this.inBounds(x, y)) continue;
+        if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) > radius) continue;
+        const o = this.offset(x, y);
+        layer.data[o] = layer.data[o + 1] = layer.data[o + 2] = layer.data[o + 3] = 0;
+      }
+    }
+  }
+
+  /** Erase along a segment with a brush of the given `size`. */
+  clearStroke(x0: number, y0: number, x1: number, y1: number, size: number, layer: Layer = this.activeLayer): void {
+    const dist = Math.hypot(x1 - x0, y1 - y0);
+    const steps = Math.max(1, Math.round(dist / Math.max(0.5, size / 4)));
+    for (let s = 0; s <= steps; s++) {
+      const t = steps === 0 ? 0 : s / steps;
+      this.clearDab(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, size, layer);
+    }
+  }
+
+  /** Stroke the parametric brush from (x0,y0) to (x1,y1), spacing dabs by flow. */
+  paintBrushStroke(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    color: ColorArray,
+    opts: {
+      size: number;
+      softness: number;
+      opacity: number;
+      flow: number;
+      jitter: number;
+      rotation?: number;
+      roundness?: number;
+    },
+    layer: Layer = this.activeLayer,
+    rng: () => number = Math.random,
+  ): void {
+    const dist = Math.hypot(x1 - x0, y1 - y0);
+    const spacing = Math.max(0.5, (opts.size / 2) * (1 - Math.min(0.99, opts.flow / 100)));
+    const steps = Math.max(1, Math.round(dist / spacing));
+    const dabAlpha = Math.max(0.02, opts.opacity / 100);
+    for (let s = 0; s <= steps; s++) {
+      const t = steps === 0 ? 0 : s / steps;
+      const jx = opts.jitter ? (rng() - 0.5) * opts.jitter : 0;
+      const jy = opts.jitter ? (rng() - 0.5) * opts.jitter : 0;
+      this.paintDab(
+        x0 + (x1 - x0) * t + jx,
+        y0 + (y1 - y0) * t + jy,
+        color,
+        opts.size,
+        opts.softness,
+        dabAlpha,
+        layer,
+        opts.rotation ?? 0,
+        opts.roundness ?? 1,
+      );
+    }
+  }
+
   spray(
     cx: number,
     cy: number,
@@ -500,14 +883,178 @@ export class ImageDocument {
     return { x: x0, y: y0, width: Math.max(0, x1 - x0), height: Math.max(0, y1 - y0) };
   }
 
+  /** Drop any selection (rectangle + mask). */
+  clearSelection(): void {
+    this.selection = null;
+    this.selectionMask = null;
+  }
+
+  /** Bounding box of the set pixels in a mask, or null if empty. */
+  private maskBounds(mask: Uint8Array): SelectionRect | null {
+    let minX = this.width;
+    let minY = this.height;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        if (mask[y * this.width + x]! === 0) continue;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX < 0) return null;
+    return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+  }
+
+  /** Install a mask as the current selection, deriving the bounding rectangle. */
+  setSelectionMask(mask: Uint8Array): void {
+    const bounds = this.maskBounds(mask);
+    if (!bounds) {
+      this.clearSelection();
+      return;
+    }
+    this.selectionMask = mask;
+    this.selection = bounds;
+  }
+
+  /** The current selection as a full-image mask (rect, mask, or whole image). */
+  private currentMask(): Uint8Array {
+    const mask = new Uint8Array(this.width * this.height);
+    if (this.selectionMask) {
+      mask.set(this.selectionMask);
+      return mask;
+    }
+    const r = this.selection ? this.clampRect(this.selection) : null;
+    if (!r) {
+      mask.fill(255);
+      return mask;
+    }
+    for (let y = 0; y < r.height; y++) {
+      for (let x = 0; x < r.width; x++) mask[(r.y + y) * this.width + (r.x + x)] = 255;
+    }
+    return mask;
+  }
+
+  private colorWithinTolerance(a: RGBA, b: RGBA, tolerance: number): boolean {
+    return (
+      Math.abs(a[0] - b[0]) <= tolerance &&
+      Math.abs(a[1] - b[1]) <= tolerance &&
+      Math.abs(a[2] - b[2]) <= tolerance &&
+      Math.abs(a[3] - b[3]) <= tolerance
+    );
+  }
+
+  /** Select every pixel of a layer matching a colour within a tolerance. */
+  selectByColor(color: ColorArray, tolerance = 0, layer: Layer = this.activeLayer): void {
+    const ref: RGBA = [color[0]!, color[1]!, color[2]!, color[3] ?? 255];
+    const mask = new Uint8Array(this.width * this.height);
+    for (let i = 0; i < mask.length; i++) {
+      const o = i * 4;
+      const px: RGBA = [layer.data[o]!, layer.data[o + 1]!, layer.data[o + 2]!, layer.data[o + 3]!];
+      if (this.colorWithinTolerance(px, ref, tolerance)) mask[i] = 255;
+    }
+    this.setSelectionMask(mask);
+  }
+
+  /** Select all pixels of the composite whose colour is NOT in the palette. */
+  selectNotInPalette(): void {
+    const inPalette = new Set(this.palette.map((c) => (c[0]! << 16) | (c[1]! << 8) | c[2]!));
+    const composite = this.composite();
+    const mask = new Uint8Array(this.width * this.height);
+    for (let i = 0; i < mask.length; i++) {
+      const o = i * 4;
+      if (composite[o + 3]! === 0) continue;
+      const key = (composite[o]! << 16) | (composite[o + 1]! << 8) | composite[o + 2]!;
+      if (!inPalette.has(key)) mask[i] = 255;
+    }
+    this.setSelectionMask(mask);
+  }
+
+  /** Select the transparent (alpha == 0) pixels of the composite. */
+  selectAlpha(): void {
+    const composite = this.composite();
+    const mask = new Uint8Array(this.width * this.height);
+    for (let i = 0; i < mask.length; i++) {
+      if (composite[i * 4 + 3]! === 0) mask[i] = 255;
+    }
+    this.setSelectionMask(mask);
+  }
+
+  /** Select the non-transparent pixels of a layer (layer → selection). */
+  layerToSelection(layer: Layer = this.activeLayer): void {
+    const mask = new Uint8Array(this.width * this.height);
+    for (let i = 0; i < mask.length; i++) {
+      if (layer.data[i * 4 + 3]! > 0) mask[i] = 255;
+    }
+    this.setSelectionMask(mask);
+  }
+
+  /** Contiguous (4-way) magic-wand select from a seed pixel. */
+  magicWandSelect(x: number, y: number, tolerance = 0, layer: Layer = this.activeLayer): void {
+    if (!this.inBounds(x, y)) return;
+    const target = this.getPixel(x, y, layer)!;
+    const mask = new Uint8Array(this.width * this.height);
+    const stack: Array<[number, number]> = [[x, y]];
+    while (stack.length) {
+      const [px, py] = stack.pop()!;
+      if (!this.inBounds(px, py)) continue;
+      const idx = py * this.width + px;
+      if (mask[idx]) continue;
+      const current = this.getPixel(px, py, layer)!;
+      if (!this.colorWithinTolerance(current, target, tolerance)) continue;
+      mask[idx] = 255;
+      stack.push([px + 1, py], [px - 1, py], [px, py + 1], [px, py - 1]);
+    }
+    this.setSelectionMask(mask);
+  }
+
+  /** Build a selection mask from a polygon outline (even-odd fill rule). */
+  selectPolygon(points: Array<[number, number]>): void {
+    if (points.length < 3) return;
+    const mask = new Uint8Array(this.width * this.height);
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        if (this.pointInPolygon(x + 0.5, y + 0.5, points)) mask[y * this.width + x] = 255;
+      }
+    }
+    this.setSelectionMask(mask);
+  }
+
+  private pointInPolygon(px: number, py: number, poly: Array<[number, number]>): boolean {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i]![0];
+      const yi = poly[i]![1];
+      const xj = poly[j]![0];
+      const yj = poly[j]![1];
+      const intersect = yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  /** Invert the current selection (within image bounds). */
+  invertSelection(): void {
+    const mask = this.currentMask();
+    for (let i = 0; i < mask.length; i++) mask[i] = mask[i] ? 0 : 255;
+    this.setSelectionMask(mask);
+  }
+
   /** Copy a rectangular region of a layer into a detached RGBA region. */
   copyRegion(rect: SelectionRect, layer: Layer = this.activeLayer): PixelRegion {
     const r = this.clampRect(rect);
+    const mask = this.selectionMask;
     const data = new Uint8ClampedArray(r.width * r.height * 4);
     for (let y = 0; y < r.height; y++) {
       for (let x = 0; x < r.width; x++) {
-        const so = ((r.y + y) * this.width + (r.x + x)) * 4;
+        const sx = r.x + x;
+        const sy = r.y + y;
         const dofs = (y * r.width + x) * 4;
+        // honour a non-rectangular selection: pixels outside the mask stay clear
+        if (mask && mask[sy * this.width + sx] === 0) continue;
+        const so = (sy * this.width + sx) * 4;
         data[dofs] = layer.data[so]!;
         data[dofs + 1] = layer.data[so + 1]!;
         data[dofs + 2] = layer.data[so + 2]!;
@@ -520,9 +1067,13 @@ export class ImageDocument {
   /** Clear (make transparent) a rectangular region of a layer. */
   clearRegion(rect: SelectionRect, layer: Layer = this.activeLayer): void {
     const r = this.clampRect(rect);
+    const mask = this.selectionMask;
     for (let y = 0; y < r.height; y++) {
       for (let x = 0; x < r.width; x++) {
-        const o = ((r.y + y) * this.width + (r.x + x)) * 4;
+        const sx = r.x + x;
+        const sy = r.y + y;
+        if (mask && mask[sy * this.width + sx] === 0) continue;
+        const o = (sy * this.width + sx) * 4;
         layer.data[o] = 0;
         layer.data[o + 1] = 0;
         layer.data[o + 2] = 0;
@@ -650,6 +1201,29 @@ export class ImageDocument {
     });
   }
 
+  /**
+   * Bounding box of the non-transparent content in the active frame's composite,
+   * or null if the image is entirely transparent.
+   */
+  trimBounds(): SelectionRect | null {
+    const composite = this.composite();
+    let minX = this.width;
+    let minY = this.height;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        if (composite[(y * this.width + x) * 4 + 3]! === 0) continue;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX < 0) return null;
+    return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+  }
+
   /** Build a new document of the given size, remapping every layer of every frame. */
   private transformAllFrames(
     newWidth: number,
@@ -736,8 +1310,10 @@ export class ImageDocument {
     for (const layer of layers) {
       if (!layer.visible || layer.opacity <= 0) continue;
       const src = layer.data;
+      const mask = layer.maskEnabled !== false ? layer.mask : null;
       for (let i = 0; i < out.length; i += 4) {
-        const sa = (src[i + 3]! / 255) * layer.opacity;
+        const maskFactor = mask ? mask[i >> 2]! / 255 : 1;
+        const sa = (src[i + 3]! / 255) * layer.opacity * maskFactor;
         if (sa <= 0) continue;
         const da = out[i + 3]! / 255;
         const outA = sa + da * (1 - sa);

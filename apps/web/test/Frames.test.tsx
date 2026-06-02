@@ -30,3 +30,18 @@ describe("Frames timeline", () => {
     expect(screen.getByTestId("frame-cell-0")).toHaveClass("active");
   });
 });
+
+describe("Frame conversions UI", () => {
+  it("clear / move-to-end / frames↔layers / sheet run without error", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByTestId("frame-add"));
+    await user.click(screen.getByTestId("frame-clear"));
+    await user.click(screen.getByTestId("frame-to-end"));
+    await user.click(screen.getByTestId("frames-to-layers"));
+    expect(screen.getByTestId("frame-indicator")).toHaveTextContent("1/1");
+    await user.click(screen.getByTestId("layers-to-frames"));
+    await user.click(screen.getByTestId("layers-to-sheet"));
+    expect(screen.getByTestId("app")).toBeInTheDocument();
+  });
+});

@@ -3,6 +3,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../src/App";
 
+// In the legacy-styled UI undo/redo are icon `<div>`s that use a `.disabled`
+// class rather than the HTML `disabled` attribute.
+const undoDisabled = () => expect(screen.getByTestId("menu-undo")).toHaveClass("disabled");
+const undoEnabled = () => expect(screen.getByTestId("menu-undo")).not.toHaveClass("disabled");
+
 describe("Image transforms & effects menu", () => {
   it("exposes flip / invert / greyscale controls", () => {
     render(<App />);
@@ -20,10 +25,10 @@ describe("Image transforms & effects menu", () => {
     expect(screen.getByTestId("status-size")).toHaveTextContent("48×64");
     await user.click(screen.getByTestId("menu-rotate-left"));
     expect(screen.getByTestId("status-size")).toHaveTextContent("64×48");
-    await user.click(screen.getByTestId("menu-resample-down"));
+    await user.click(screen.getByTestId("menu-resample"));
     expect(screen.getByTestId("status-size")).toHaveTextContent("32×24");
     await user.click(screen.getByTestId("menu-matte"));
-    expect(screen.getByTestId("menu-undo")).toBeEnabled();
+    undoEnabled();
   });
 
   it("exposes pixel-effect controls that run as undoable steps", async () => {
@@ -35,36 +40,30 @@ describe("Image transforms & effects menu", () => {
     await user.click(screen.getByTestId("menu-posterize"));
     await user.click(screen.getByTestId("menu-threshold"));
     await user.click(screen.getByTestId("menu-blur"));
-    expect(screen.getByTestId("menu-undo")).toBeEnabled();
+    undoEnabled();
   });
 
   it("exposes colour-depth + alchemy filters that run undoably", async () => {
     const user = userEvent.setup();
     render(<App />);
-    for (const id of [
-      "menu-depth-12",
-      "menu-depth-9",
-      "menu-offset",
-      "menu-smooth",
-      "menu-sharpen",
-    ]) {
+    for (const id of ["menu-12bit", "menu-9bit", "menu-offset", "menu-smooth", "menu-sharpen"]) {
       expect(screen.getByTestId(id)).toBeInTheDocument();
     }
     await user.click(screen.getByTestId("menu-offset"));
     await user.click(screen.getByTestId("menu-smooth"));
     await user.click(screen.getByTestId("menu-sharpen"));
-    await user.click(screen.getByTestId("menu-depth-12"));
-    expect(screen.getByTestId("menu-undo")).toBeEnabled();
+    await user.click(screen.getByTestId("menu-12bit"));
+    undoEnabled();
   });
 
   it("a flip creates an undoable checkpoint", async () => {
     const user = userEvent.setup();
     render(<App />);
-    expect(screen.getByTestId("menu-undo")).toBeDisabled();
+    undoDisabled();
     await user.click(screen.getByTestId("menu-fliph"));
-    expect(screen.getByTestId("menu-undo")).toBeEnabled();
+    undoEnabled();
     await user.click(screen.getByTestId("menu-undo"));
-    expect(screen.getByTestId("menu-undo")).toBeDisabled();
+    undoDisabled();
   });
 
   it("invert and greyscale run and are undoable", async () => {
@@ -72,10 +71,9 @@ describe("Image transforms & effects menu", () => {
     render(<App />);
     await user.click(screen.getByTestId("menu-invert"));
     await user.click(screen.getByTestId("menu-grayscale"));
-    // two effect checkpoints recorded -> undo twice returns to the start
-    expect(screen.getByTestId("menu-undo")).toBeEnabled();
+    undoEnabled();
     await user.click(screen.getByTestId("menu-undo"));
     await user.click(screen.getByTestId("menu-undo"));
-    expect(screen.getByTestId("menu-undo")).toBeDisabled();
+    undoDisabled();
   });
 });

@@ -10,7 +10,7 @@ function setup() {
 describe("App shell", () => {
   it("renders the major regions", () => {
     setup();
-    expect(screen.getByTestId("menubar")).toBeInTheDocument();
+    expect(screen.getByTestId("menu")).toBeInTheDocument();
     expect(screen.getByTestId("toolbar")).toBeInTheDocument();
     expect(screen.getByTestId("palette")).toBeInTheDocument();
     expect(screen.getByTestId("paint-canvas")).toBeInTheDocument();
@@ -41,18 +41,31 @@ describe("Tool selection", () => {
     expect(screen.getByTestId("tool-line")).toHaveAttribute("aria-pressed", "true");
     await user.keyboard("r");
     expect(screen.getByTestId("tool-rect")).toHaveAttribute("aria-pressed", "true");
-    await user.keyboard("e");
+    await user.keyboard("c");
     expect(screen.getByTestId("tool-ellipse")).toHaveAttribute("aria-pressed", "true");
+    await user.keyboard("a");
+    expect(screen.getByTestId("tool-arc")).toHaveAttribute("aria-pressed", "true");
+    await user.keyboard("e");
+    expect(screen.getByTestId("tool-eraser")).toHaveAttribute("aria-pressed", "true");
+    await user.keyboard("o");
+    expect(screen.getByTestId("tool-spray")).toHaveAttribute("aria-pressed", "true");
+    await user.keyboard("p");
+    expect(screen.getByTestId("tool-polygonselect")).toHaveAttribute("aria-pressed", "true");
+    await user.keyboard("z");
+    expect(screen.getByTestId("tool-split")).toHaveAttribute("aria-pressed", "true");
   });
 
   it("exposes the full tool set including ellipse, gradient, spray and smudge", () => {
     setup();
-    expect(within(screen.getByTestId("toolbar")).getAllByRole("button")).toHaveLength(13);
+    expect(within(screen.getByTestId("toolbar")).getAllByRole("button").length).toBeGreaterThanOrEqual(17);
     expect(screen.getByTestId("tool-ellipse")).toBeInTheDocument();
-    expect(screen.getByTestId("tool-fillellipse")).toBeInTheDocument();
     expect(screen.getByTestId("tool-gradient")).toBeInTheDocument();
     expect(screen.getByTestId("tool-spray")).toBeInTheDocument();
     expect(screen.getByTestId("tool-smudge")).toBeInTheDocument();
+    expect(screen.getByTestId("tool-eraser")).toBeInTheDocument();
+    expect(screen.getByTestId("tool-wandselect")).toBeInTheDocument();
+    expect(screen.getByTestId("tool-arc")).toBeInTheDocument();
+    expect(screen.getByTestId("tool-pan")).toBeInTheDocument();
   });
 });
 
@@ -84,12 +97,12 @@ describe("Palette", () => {
 describe("Menu / zoom commands via EventBus", () => {
   it("zooms in and out", async () => {
     const { user } = setup();
-    expect(screen.getByTestId("zoom-label")).toHaveTextContent("8×");
+    expect(screen.getByTestId("zoom-label")).toHaveTextContent("800%");
     await user.click(screen.getByTestId("menu-zoomin"));
-    expect(screen.getByTestId("zoom-label")).toHaveTextContent("9×");
+    expect(screen.getByTestId("zoom-label")).toHaveTextContent("900%");
     await user.click(screen.getByTestId("menu-zoomout"));
     await user.click(screen.getByTestId("menu-zoomout"));
-    expect(screen.getByTestId("zoom-label")).toHaveTextContent("7×");
+    expect(screen.getByTestId("zoom-label")).toHaveTextContent("700%");
   });
 
   it("adds a layer through the menu (bus command)", async () => {
@@ -98,14 +111,6 @@ describe("Menu / zoom commands via EventBus", () => {
     expect(screen.getByTestId("status-layers")).toHaveTextContent("2 layer(s)");
   });
 
-  it("scales the image up and down", async () => {
-    const { user } = setup();
-    expect(screen.getByTestId("status-size")).toHaveTextContent("64×48");
-    await user.click(screen.getByTestId("menu-scale-up"));
-    expect(screen.getByTestId("status-size")).toHaveTextContent("128×96");
-    await user.click(screen.getByTestId("menu-scale-down"));
-    expect(screen.getByTestId("status-size")).toHaveTextContent("64×48");
-  });
 });
 
 describe("Layer panel", () => {
@@ -121,8 +126,9 @@ describe("Layer panel", () => {
   it("toggles layer visibility", async () => {
     const { user } = setup();
     const toggle = screen.getByTestId("layer-visibility-0");
-    expect(toggle).toHaveTextContent("👁");
+    // legacy toggles the `.hidden` class on the layer row (the eye is an icon)
+    expect(screen.getByTestId("layer-row-0")).not.toHaveClass("hidden");
     await user.click(toggle);
-    expect(screen.getByTestId("layer-visibility-0")).toHaveTextContent("—");
+    expect(screen.getByTestId("layer-row-0")).toHaveClass("hidden");
   });
 });

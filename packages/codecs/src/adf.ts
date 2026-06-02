@@ -164,5 +164,71 @@ export function decodeADF(bytes: Uint8Array): DecodedADF {
   return { label: disk.label, ffs: disk.ffs, entries: disk.list() };
 }
 
-const ADF = { AdfDisk, decodeADF };
+const DD_SECTORS = 1760; // standard 880 KB double-density Amiga floppy
+const OFS_DATA = SECTOR - 24; // payload bytes per OFS data block
+
+/**
+ * Write a minimal but valid OFS ADF (880 KB) containing the given files in the
+ * root directory. Round-trips through {@link AdfDisk} (the reader this module
+ * also provides). Intended for "save image to disk", not full AmigaDOS fidelity
+ * (no bitmap/checksum validation, single-level root only).
+ */
+export function encodeADF(files: { name: string; bytes: Uint8Array }[], label = "DPAINT"): Uint8Array {
+  const buf = new Uint8Array(DD_SECTORS * SECTOR);
+  const view = new DataView(buf.buffer);
+  const setLong = (off: number, val: number) => view.setUint32(off, val >>> 0);
+  const setName = (sector: number, name: string) => {
+    const o = sector * SECTOR + SECTOR - 80;
+    const clipped = name.slice(0, 30);
+    buf[o] = clipped.length;
+    for (let i = 0; i < clipped.length; i++) buf[o + 1 + i] = clipped.charCodeAt(i);
+  };
+
+  // boot block: "DOS" + 0 (OFS)
+  buf[0] = 0x44; // D
+  buf[1] = 0x4f; // O
+  buf[2] = 0x53; // S
+  buf[3] = 0x00;
+
+  const root = Math.floor(DD_SECTORS / 2); // 880
+  setLong(root * SECTOR, 2); // header type
+  setName(root, label);
+
+  let next = root + 1; // allocate file/data sectors after the root
+  files.forEach((file, i) => {
+    const hdr = next++;
+    setLong(root * SECTOR + 24 + i * 4, hdr); // root hash slot -> file header
+
+    const dataSectors: number[] = [];
+    const blockCount = Math.max(1, Math.ceil(file.bytes.length / OFS_DATA));
+    for (let b = 0; b < blockCount; b++) dataSectors.push(next++);
+
+    // file header block
+    setLong(hdr * SECTOR + 0, 2); // header type
+    setLong(hdr * SECTOR + 16, dataSectors[0] ?? 0); // firstDataBlock
+    setLong(hdr * SECTOR + SECTOR - 188, file.bytes.length); // size
+    setLong(hdr * SECTOR + SECTOR - 16, 0); // linkedSector
+    setLong(hdr * SECTOR + SECTOR - 4, 0xfffffffd); // secondaryType FILE
+    setName(hdr, file.name);
+
+    // OFS data blocks (24-byte header each, chained)
+    let written = 0;
+    for (let b = 0; b < blockCount; b++) {
+      const ds = dataSectors[b]!;
+      const base = ds * SECTOR;
+      const take = Math.min(OFS_DATA, file.bytes.length - written);
+      setLong(base + 0, 8); // data block type
+      setLong(base + 4, hdr); // header sector
+      setLong(base + 8, b + 1); // sequence number
+      setLong(base + 12, take); // data size
+      setLong(base + 16, b + 1 < blockCount ? dataSectors[b + 1]! : 0); // next block
+      buf.set(file.bytes.subarray(written, written + take), base + 24);
+      written += take;
+    }
+  });
+
+  return buf;
+}
+
+const ADF = { AdfDisk, decodeADF, encodeADF };
 export default ADF;

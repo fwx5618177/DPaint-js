@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EVENT } from "@dpaint/runtime";
+import { COMMAND, EVENT } from "@dpaint/runtime";
+import type { ColorArray } from "@dpaint/primitives";
 import { useEditor } from "../state/EditorContext";
 import { renderTextRegion } from "../model/textRender";
 
@@ -8,16 +9,24 @@ interface DragState {
   startY: number;
   lastX: number;
   lastY: number;
+  button: number;
+  color: ColorArray;
 }
 
 /** Renders the composited document into a canvas and routes pointer input to tools. */
 export function CanvasView() {
   const editor = useEditor();
-  const { doc, zoom, tool, color, bgColor, version, commit, checkpoint, bus, showGrid, showRulers } =
+  const { doc, zoom, tool, color, bgColor, version, commit, checkpoint, bus, showGrid, showRulers, brushStroke, eraseStroke } =
     editor;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragRef = useRef<DragState | null>(null);
+  const arcRef = useRef<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const polyRef = useRef<Array<[number, number]>>([]);
+  const mirrorRef = useRef<HTMLCanvasElement>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
+  const { splitScreen } = editor;
+  const scaledWidth = Math.max(1, Math.round(doc.width * zoom));
+  const scaledHeight = Math.max(1, Math.round(doc.height * zoom));
 
   const paint = useCallback(() => {
     const canvas = canvasRef.current;
@@ -34,7 +43,7 @@ export function CanvasView() {
     tmp.height = doc.height;
     tmp.getContext("2d")!.putImageData(image, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(tmp, 0, 0, doc.width * zoom, doc.height * zoom);
+    ctx.drawImage(tmp, 0, 0, canvas.width, canvas.height);
 
     // selection overlay (marching-ants style dashed rectangle)
     const sel = doc.selection;
@@ -91,26 +100,47 @@ export function CanvasView() {
     paint();
   }, [paint, version]);
 
+  // split-screen: paint the composite into the right-panel mirror view
+  useEffect(() => {
+    if (!splitScreen) return;
+    const canvas = mirrorRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const image = new ImageData(doc.width, doc.height);
+    image.data.set(doc.composite());
+    const tmp = document.createElement("canvas");
+    tmp.width = doc.width;
+    tmp.height = doc.height;
+    tmp.getContext("2d")!.putImageData(image, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(tmp, 0, 0, canvas.width, canvas.height);
+  }, [splitScreen, doc, zoom, version]);
+
   const toDocCoords = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>): { x: number; y: number } => {
       const rect = e.currentTarget.getBoundingClientRect();
       return {
-        x: Math.floor((e.clientX - rect.left) / zoom),
-        y: Math.floor((e.clientY - rect.top) / zoom),
+        x: Math.floor(((e.clientX - rect.left) / Math.max(1, rect.width)) * doc.width),
+        y: Math.floor(((e.clientY - rect.top) / Math.max(1, rect.height)) * doc.height),
       };
     },
-    [zoom],
+    [doc.width, doc.height],
   );
 
   const applyStroke = useCallback(
     (x: number, y: number, drag: DragState, preview: boolean) => {
       switch (tool) {
         case "pencil":
-          doc.drawLine(drag.lastX, drag.lastY, x, y, color);
+          brushStroke(drag.lastX, drag.lastY, x, y, drag.color);
+          break;
+        case "eraser":
+          eraseStroke(drag.lastX, drag.lastY, x, y);
           break;
         case "line":
           // for a live tool we keep it simple: commit only on release
-          if (!preview) doc.drawLine(drag.startX, drag.startY, x, y, color);
+          if (!preview) doc.drawLine(drag.startX, drag.startY, x, y, drag.color);
           break;
         case "rect":
         case "fillrect":
@@ -119,39 +149,42 @@ export function CanvasView() {
             const ry = Math.min(drag.startY, y);
             const rw = Math.abs(x - drag.startX) + 1;
             const rh = Math.abs(y - drag.startY) + 1;
-            doc.drawRect(rx, ry, rw, rh, color, tool === "fillrect");
+            doc.drawRect(rx, ry, rw, rh, drag.color, tool === "fillrect");
           }
           break;
         case "ellipse":
         case "fillellipse":
           if (!preview) {
-            doc.drawEllipse(drag.startX, drag.startY, x, y, color, tool === "fillellipse");
+            doc.drawEllipse(drag.startX, drag.startY, x, y, drag.color, tool === "fillellipse");
           }
           break;
         case "fill":
-          if (!preview) doc.floodFill(x, y, color);
+          if (!preview) doc.floodFill(x, y, drag.color);
           break;
         case "gradient":
-          if (!preview) doc.gradientLinear(drag.startX, drag.startY, x, y, color, bgColor);
+          if (!preview) doc.gradientLinear(drag.startX, drag.startY, x, y, drag.color, drag.button ? color : bgColor);
           break;
         case "picker":
           if (!preview) {
             const p = doc.getPixel(x, y);
             if (p) {
-              editor.setColor([p[0], p[1], p[2]]);
+              const picked: ColorArray = [p[0], p[1], p[2]];
+              if (drag.button) editor.setBgColor(picked);
+              else editor.setColor(picked);
               bus.trigger(EVENT.drawColorChanged, p);
             }
           }
           break;
       }
     },
-    [tool, doc, color, bgColor, editor, bus],
+    [tool, doc, color, bgColor, editor, bus, brushStroke, eraseStroke],
   );
 
   const setSelectionFromDrag = useCallback(
     (drag: DragState, x: number, y: number) => {
       const sx = Math.min(drag.startX, x);
       const sy = Math.min(drag.startY, y);
+      doc.selectionMask = null; // a fresh rectangular drag replaces any mask
       doc.selection = {
         x: sx,
         y: sy,
@@ -166,13 +199,46 @@ export function CanvasView() {
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       e.currentTarget.setPointerCapture(e.pointerId);
       const { x, y } = toDocCoords(e);
-      const drag: DragState = { startX: x, startY: y, lastX: x, lastY: y };
+      const dragColor = e.button ? bgColor : color;
+      const drag: DragState = { startX: x, startY: y, lastX: x, lastY: y, button: e.button, color: dragColor };
       dragRef.current = drag;
       if (tool === "pencil") {
-        doc.setPixel(x, y, color);
+        brushStroke(x, y, x, y, drag.color);
         commit();
+      } else if (tool === "eraser") {
+        eraseStroke(x, y, x, y);
+        commit();
+      } else if (tool === "brush") {
+        editor.stampBrush(x, y);
+        commit();
+      } else if (tool === "polygonselect") {
+        polyRef.current.push([x, y]); // accumulate; double-click closes
+        dragRef.current = null;
+      } else if (tool === "wandselect") {
+        editor.magicWandSelect(x, y);
+        dragRef.current = null; // one-shot
+      } else if (tool === "layerpick") {
+        const idx = doc.topLayerAt(x, y);
+        if (idx >= 0) {
+          doc.activeLayerIndex = idx;
+          commit();
+        }
+        dragRef.current = null;
+      } else if (tool === "pan") {
+        dragRef.current = null; // view-only; no pixel mutation
+      } else if (tool === "arc") {
+        if (arcRef.current) {
+          // second click supplies the waypoint the arc bows through
+          const a = arcRef.current;
+          doc.drawArc(a.x0, a.y0, a.x1, a.y1, x, y, drag.color);
+          commit();
+          checkpoint();
+          arcRef.current = null;
+          dragRef.current = null;
+        }
+        // first phase: the chord is captured on pointer up below
       } else if (tool === "spray") {
-        doc.spray(x, y, 4, 8, color);
+        doc.spray(x, y, 4, 8, drag.color);
         commit();
       } else if (tool === "fill" || tool === "picker") {
         applyStroke(x, y, drag, false);
@@ -180,7 +246,7 @@ export function CanvasView() {
       } else if (tool === "text") {
         const str = typeof window !== "undefined" ? window.prompt("Enter text:") : null;
         if (str) {
-          const region = renderTextRegion(str, color);
+          const region = renderTextRegion(str, drag.color);
           if (region) {
             doc.stampRegion(region, x, y);
             commit();
@@ -193,7 +259,7 @@ export function CanvasView() {
         commit();
       }
     },
-    [toDocCoords, tool, doc, color, commit, checkpoint, applyStroke, setSelectionFromDrag],
+    [toDocCoords, tool, doc, color, bgColor, commit, checkpoint, applyStroke, setSelectionFromDrag, editor, brushStroke, eraseStroke],
   );
 
   const onPointerMove = useCallback(
@@ -202,13 +268,13 @@ export function CanvasView() {
       setCursor({ x, y });
       const drag = dragRef.current;
       if (!drag) return;
-      if (tool === "pencil") {
+      if (tool === "pencil" || tool === "eraser") {
         applyStroke(x, y, drag, false);
         drag.lastX = x;
         drag.lastY = y;
         commit();
       } else if (tool === "spray") {
-        doc.spray(x, y, 4, 8, color);
+        doc.spray(x, y, 4, 8, drag.color);
         commit();
       } else if (tool === "smudge") {
         doc.smudge(drag.lastX, drag.lastY, x, y, 0.5);
@@ -220,7 +286,7 @@ export function CanvasView() {
         commit();
       }
     },
-    [toDocCoords, tool, doc, color, applyStroke, commit, setSelectionFromDrag],
+    [toDocCoords, tool, doc, applyStroke, commit, setSelectionFromDrag],
   );
 
   const onPointerUp = useCallback(
@@ -228,6 +294,12 @@ export function CanvasView() {
       const drag = dragRef.current;
       if (!drag) return;
       const { x, y } = toDocCoords(e);
+      if (tool === "arc") {
+        // first phase: store the chord; the next click supplies the waypoint
+        arcRef.current = { x0: drag.startX, y0: drag.startY, x1: x, y1: y };
+        dragRef.current = null;
+        return;
+      }
       if (
         tool === "line" ||
         tool === "rect" ||
@@ -250,21 +322,67 @@ export function CanvasView() {
   );
 
   return (
-    <div className="canvas-view" data-testid="canvas-view">
-      <canvas
-        ref={canvasRef}
-        width={doc.width * zoom}
-        height={doc.height * zoom}
-        className="paint-canvas"
-        data-testid="paint-canvas"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={() => setCursor(null)}
-        style={{ touchAction: "none" }}
-      />
-      <div className="canvas-coords" data-testid="canvas-coords">
-        {cursor ? `${cursor.x}, ${cursor.y}` : "—"}
+    <div className="editor splitpanel" data-testid="canvas-view">
+      <div className="panel left">
+        <div className="toolbar">
+          <div className="button info" data-tip="Zoom out" onClick={() => bus.trigger(COMMAND.ZOOMOUT)}>
+            −
+          </div>
+          <div className="button auto info" data-tip="Reset zoom" data-testid="zoom-label" onClick={() => editor.setZoom(1)}>
+            {Math.round(zoom * 100)}%
+          </div>
+          <div className="button info" data-tip="Zoom in" onClick={() => bus.trigger(COMMAND.ZOOMIN)}>
+            +
+          </div>
+          <div className="button expand info" data-tip="Fit to window" data-testid="menu-zoomfit" onClick={() => editor.zoomFit()} />
+        </div>
+        <div className="viewport">
+          <div className="canvaswrapper">
+            <div className="canvascontainer">
+              <canvas
+                ref={canvasRef}
+                width={scaledWidth}
+                height={scaledHeight}
+                className="maincanvas info"
+                data-testid="paint-canvas"
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerLeave={() => setCursor(null)}
+                onDoubleClick={() => {
+                  if (tool === "polygonselect" && polyRef.current.length >= 3) {
+                    editor.selectPolygon(polyRef.current.slice());
+                  }
+                  polyRef.current = [];
+                }}
+                onContextMenu={(e) => e.preventDefault()}
+                style={{ touchAction: "none" }}
+              />
+            </div>
+          </div>
+          <div className="canvas-coords" data-testid="canvas-coords">
+            {cursor ? `${cursor.x}, ${cursor.y}` : "—"}
+          </div>
+        </div>
+      </div>
+      {/* legacy hides the `:last-of-type` panel; on split-screen it shows a second
+          view of the image (here a live mirror of the composite). */}
+      <div className="panel right" data-testid="canvas-panel-right">
+        {splitScreen && (
+          <div className="viewport">
+            <div className="canvaswrapper">
+              <div className="canvascontainer">
+                <canvas
+                  ref={mirrorRef}
+                  width={scaledWidth}
+                  height={scaledHeight}
+                  className="maincanvas info"
+                  data-testid="paint-canvas-mirror"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

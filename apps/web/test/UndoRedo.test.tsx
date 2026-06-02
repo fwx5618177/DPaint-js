@@ -16,8 +16,8 @@ function drawDot() {
 describe("Undo / redo", () => {
   it("undo and redo are disabled on a fresh document", () => {
     render(<App />);
-    expect(screen.getByTestId("menu-undo")).toBeDisabled();
-    expect(screen.getByTestId("menu-redo")).toBeDisabled();
+    expect(screen.getByTestId("menu-undo")).toHaveClass("disabled");
+    expect(screen.getByTestId("menu-redo")).toHaveClass("disabled");
   });
 
   it("a drawing stroke becomes an undoable checkpoint", () => {
@@ -25,7 +25,7 @@ describe("Undo / redo", () => {
     expect(screen.getByTestId("status-colors")).toHaveTextContent("0 colours");
     drawDot();
     expect(screen.getByTestId("status-colors")).toHaveTextContent("1 colours");
-    expect(screen.getByTestId("menu-undo")).toBeEnabled();
+    expect(screen.getByTestId("menu-undo")).not.toHaveClass("disabled");
   });
 
   it("undo reverts the stroke and redo re-applies it", async () => {
@@ -36,7 +36,7 @@ describe("Undo / redo", () => {
 
     await user.click(screen.getByTestId("menu-undo"));
     expect(screen.getByTestId("status-colors")).toHaveTextContent("0 colours");
-    expect(screen.getByTestId("menu-redo")).toBeEnabled();
+    expect(screen.getByTestId("menu-redo")).not.toHaveClass("disabled");
 
     await user.click(screen.getByTestId("menu-redo"));
     expect(screen.getByTestId("status-colors")).toHaveTextContent("1 colours");

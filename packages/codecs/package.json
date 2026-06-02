@@ -16,6 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dpaint/primitives": "workspace:*"
+    "@dpaint/primitives": "workspace:*",
+    "http-server": "^14.1.1"
   }
 }

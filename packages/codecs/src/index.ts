@@ -8,6 +8,15 @@ export { deflate, inflate } from "./zlib.js";
 export { encodePNG, decodePNG, default as PNG } from "./png.js";
 export type { RasterImage, DecodedPNG } from "./png.js";
 
+export {
+  encodeACT,
+  decodeACT,
+  encodeJASC,
+  decodeJASC,
+  decodePaletteFile,
+  type PaletteColor,
+} from "./palette.js";
+
 export { default as LZW } from "./lzw.js";
 export * as LZWCodec from "./lzw.js";
 export { decodeGIF, encodeGIF, encodeAnimatedGIF, default as GIF } from "./gif.js";
@@ -21,6 +30,8 @@ export type {
 
 export {
   decodeILBM,
+  decodeANIM,
+  decodePBM,
   encodeILBM,
   encodeTrueColorILBM,
   encodeHAM,
@@ -31,6 +42,7 @@ export {
 } from "./iff.js";
 export type {
   DecodedILBM,
+  DecodedANIM,
   ILBMMode,
   ILBMEncodeInput,
   ILBM24EncodeInput,
@@ -50,5 +62,5 @@ export type { DecodedAseprite, AsepriteLayer } from "./aseprite.js";
 export { decodeAmigaIcon, default as AmigaIcon } from "./amigaIcon.js";
 export type { DecodedAmigaIcon, AmigaIconImage } from "./amigaIcon.js";
 
-export { AdfDisk, decodeADF, default as ADF } from "./adf.js";
+export { AdfDisk, decodeADF, encodeADF, default as ADF } from "./adf.js";
 export type { DecodedADF, AdfEntry, AdfEntryType } from "./adf.js";

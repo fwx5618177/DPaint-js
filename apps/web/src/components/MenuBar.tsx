@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { COMMAND } from "@dpaint/runtime";
+import { encodePNG, decodePNG } from "@dpaint/codecs";
 import { useEditor } from "../state/EditorContext";
 
 /** Top menu bar wired to the legacy COMMAND event bus. */
@@ -11,6 +12,10 @@ export function MenuBar() {
     resize,
     scale,
     resampleScale,
+    crop,
+    trim,
+    imageInfo,
+    transformSelection,
     rotate,
     rotateFree,
     matteImage,
@@ -57,8 +62,38 @@ export function MenuBar() {
     toggleRulers,
     showBitplanes,
     toggleBitplanes,
+    zoomFit,
+    galleryOpen,
+    toggleGallery,
+    invertSelection,
+    selectByColor,
+    selectAlpha,
+    selectNotInPalette,
+    layerToSelection,
+    hasBrush,
+    captureBrush,
+    rotateBrush,
+    flipBrush,
+    getBrush,
+    setBrushRegion,
+    loadPalette,
+    savePaletteACT,
+    exportPaletteImage,
+    importLayer,
+    saveToADF,
+    togglePresentation,
+    toggleSidePanel,
+    toggleSplitScreen,
+    toggleFullscreen,
+    splitScreen,
+    showAbout,
+    showPreferences,
+    toggleUae,
   } = useEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const brushInputRef = useRef<HTMLInputElement>(null);
+  const paletteInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const download = (bytes: BlobPart, filename: string, mime: string) => {
     const blob = new Blob([bytes], { type: mime });
@@ -71,6 +106,44 @@ export function MenuBar() {
   };
 
   const handleSave = () => download(serialize(), "untitled.dpaint.json", "application/json");
+
+  const handleSaveBrush = async () => {
+    const brush = getBrush();
+    if (!brush) return;
+    const png = await encodePNG({ width: brush.width, height: brush.height, data: brush.data });
+    download(png as unknown as BlobPart, "brush.png", "image/png");
+  };
+
+  const handleLoadBrush = async (file: File) => {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const img = await decodePNG(bytes);
+    setBrushRegion({
+      width: img.width,
+      height: img.height,
+      data: new Uint8ClampedArray(img.data),
+    });
+  };
+
+  const handleSavePalette = () =>
+    download(savePaletteACT() as unknown as BlobPart, "palette.act", "application/octet-stream");
+
+  const handleExportPalette = async () => {
+    const png = await exportPaletteImage();
+    download(png as unknown as BlobPart, "palette.png", "image/png");
+  };
+
+  const handleLoadPalette = async (file: File) => {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    loadPalette(bytes, file.name);
+  };
+
+  const handleImportLayer = async (file: File) => {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    await importLayer(bytes, file.name);
+  };
+
+  const handleSaveADF = () =>
+    download(saveToADF() as unknown as BlobPart, "disk.adf", "application/octet-stream");
 
   const handleExportPNG = async () => {
     const png = await exportPNG();
@@ -98,6 +171,8 @@ export function MenuBar() {
         name.endsWith(".iff") ||
         name.endsWith(".ilbm") ||
         name.endsWith(".lbm") ||
+        name.endsWith(".pbm") ||
+        name.endsWith(".anim") ||
         name.endsWith(".psd") ||
         name.endsWith(".pi1") ||
         name.endsWith(".pi2") ||
@@ -140,7 +215,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-export-ham"
-        title="Export HAM6 IFF"
+        data-tip="Export HAM6 IFF"
         onClick={() => download(exportHAM() as unknown as BlobPart, "untitled.ham.iff", "image/x-ilbm")}
       >
         HAM
@@ -148,7 +223,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-export-sham"
-        title="Export sliced-HAM IFF"
+        data-tip="Export sliced-HAM IFF"
         onClick={() => download(exportSHAM() as unknown as BlobPart, "untitled.sham.iff", "image/x-ilbm")}
       >
         SHAM
@@ -156,7 +231,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-export-psd"
-        title="Export PSD"
+        data-tip="Export PSD"
         onClick={() => download(exportPSD() as unknown as BlobPart, "untitled.psd", "image/vnd.adobe.photoshop")}
       >
         PSD
@@ -176,7 +251,7 @@ export function MenuBar() {
         data-testid="menu-record"
         className={recording ? "active" : ""}
         aria-pressed={recording}
-        title="Record edits as animation frames"
+        data-tip="Record edits as animation frames"
         onClick={toggleRecording}
       >
         {recording ? `Rec ${recordedFrameCount}` : "Rec"}
@@ -185,7 +260,7 @@ export function MenuBar() {
         type="button"
         data-testid="menu-export-rec"
         disabled={recordedFrameCount === 0}
-        title="Export the recording as an animated GIF"
+        data-tip="Export the recording as an animated GIF"
         onClick={() => {
           const gif = exportRecording();
           if (gif) download(gif as unknown as BlobPart, "recording.gif", "image/gif");
@@ -196,7 +271,7 @@ export function MenuBar() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,application/json,.png,image/png,.gif,image/gif,.iff,.ilbm,.lbm,.psd,.pi1,.pi2,.pi3,.neo,.ase,.aseprite,.info,.adf"
+        accept=".json,application/json,.png,image/png,.gif,image/gif,.iff,.ilbm,.lbm,.pbm,.anim,.psd,.pi1,.pi2,.pi3,.neo,.ase,.aseprite,.info,.adf"
         data-testid="file-input"
         style={{ display: "none" }}
         onChange={(e) => {
@@ -205,6 +280,82 @@ export function MenuBar() {
           e.target.value = "";
         }}
       />
+      <input
+        ref={brushInputRef}
+        type="file"
+        accept=".png,image/png"
+        data-testid="brush-input"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleLoadBrush(file);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={paletteInputRef}
+        type="file"
+        accept=".act,.pal,.gpl"
+        data-testid="palette-input"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleLoadPalette(file);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".png,image/png,.gif,image/gif,.iff,.ilbm,.lbm,.pbm,.anim,.psd,.pi1,.pi2,.pi3,.neo,.ase,.aseprite,.info"
+        data-testid="import-input"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleImportLayer(file);
+          e.target.value = "";
+        }}
+      />
+      <button
+        type="button"
+        data-testid="menu-import-layer"
+        data-tip="Import an image as a new layer"
+        onClick={() => importInputRef.current?.click()}
+      >
+        Import
+      </button>
+      <button
+        type="button"
+        data-testid="menu-save-adf"
+        data-tip="Save the image into an Amiga ADF disk"
+        onClick={handleSaveADF}
+      >
+        Save ADF
+      </button>
+      <button
+        type="button"
+        data-testid="menu-load-palette"
+        data-tip="Load a palette file (.act / .pal)"
+        onClick={() => paletteInputRef.current?.click()}
+      >
+        Load pal
+      </button>
+      <button
+        type="button"
+        data-testid="menu-save-palette"
+        data-tip="Save the palette as .act"
+        onClick={handleSavePalette}
+      >
+        Save pal
+      </button>
+      <button
+        type="button"
+        data-testid="menu-export-palette"
+        data-tip="Export the palette as a PNG swatch"
+        onClick={() => void handleExportPalette()}
+      >
+        Export pal
+      </button>
       <button
         type="button"
         data-testid="menu-clear"
@@ -249,7 +400,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-fliph"
-        title="Flip horizontal"
+        data-tip="Flip horizontal"
         onClick={() => bus.trigger(COMMAND.FLIPHORIZONTAL)}
       >
         Flip H
@@ -257,7 +408,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-flipv"
-        title="Flip vertical"
+        data-tip="Flip vertical"
         onClick={() => bus.trigger(COMMAND.FLIPVERTICAL)}
       >
         Flip V
@@ -280,7 +431,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-depth-12"
-        title="Limit to Amiga 12-bit colour"
+        data-tip="Limit to Amiga 12-bit colour"
         onClick={() => reduceToDepth(4)}
       >
         12-bit
@@ -288,7 +439,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-depth-9"
-        title="Limit to Atari ST 9-bit colour"
+        data-tip="Limit to Atari ST 9-bit colour"
         onClick={() => reduceToDepth(3)}
       >
         9-bit
@@ -307,7 +458,7 @@ export function MenuBar() {
           key={fx}
           type="button"
           data-testid={`menu-fx-${fx}`}
-          title={`Apply ${fx} filter`}
+          data-tip={`Apply ${fx} filter`}
           onClick={() => applyArtistic(fx)}
         >
           {fx[0]!.toUpperCase() + fx.slice(1)}
@@ -317,7 +468,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-scale-up"
-        title="Double the image size"
+        data-tip="Double the image size"
         onClick={() => scale(2)}
       >
         2×
@@ -325,7 +476,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-scale-down"
-        title="Halve the image size"
+        data-tip="Halve the image size"
         onClick={() => scale(0.5)}
       >
         ½×
@@ -333,7 +484,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-resample-down"
-        title="Halve the image size with smooth resampling"
+        data-tip="Halve the image size with smooth resampling"
         onClick={() => resampleScale(0.5)}
       >
         ½ smooth
@@ -341,7 +492,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-resize"
-        title="Resize to specific dimensions"
+        data-tip="Resize to specific dimensions"
         onClick={() => {
           const v =
             typeof window !== "undefined"
@@ -355,8 +506,141 @@ export function MenuBar() {
       </button>
       <button
         type="button"
+        data-testid="menu-crop"
+        data-tip="Crop to selection"
+        onClick={() => crop()}
+      >
+        Crop
+      </button>
+      <button
+        type="button"
+        data-testid="menu-trim"
+        data-tip="Trim transparent margins"
+        onClick={() => trim()}
+      >
+        Trim
+      </button>
+      <button
+        type="button"
+        data-testid="menu-info"
+        data-tip="Image information"
+        onClick={() => {
+          if (typeof window !== "undefined") window.alert(imageInfo());
+        }}
+      >
+        Info
+      </button>
+      <button
+        type="button"
+        data-testid="menu-transform"
+        data-tip="Free transform the selection (scale + rotate)"
+        onClick={() => {
+          const s =
+            typeof window !== "undefined" ? window.prompt("Scale factor:", "1") : null;
+          const a =
+            typeof window !== "undefined" ? window.prompt("Rotate degrees:", "0") : null;
+          const scale = s ? Number(s) : 1;
+          const angle = a ? Number(a) : 0;
+          if (!Number.isNaN(scale) && !Number.isNaN(angle)) transformSelection(scale || 1, angle || 0);
+        }}
+      >
+        Transform
+      </button>
+      <button
+        type="button"
+        data-testid="menu-select-invert"
+        data-tip="Invert selection"
+        onClick={() => invertSelection()}
+      >
+        Invert sel
+      </button>
+      <button
+        type="button"
+        data-testid="menu-select-color"
+        data-tip="Select by foreground colour"
+        onClick={() => selectByColor()}
+      >
+        Sel colour
+      </button>
+      <button
+        type="button"
+        data-testid="menu-select-alpha"
+        data-tip="Select transparent pixels"
+        onClick={() => selectAlpha()}
+      >
+        Sel alpha
+      </button>
+      <button
+        type="button"
+        data-testid="menu-select-notpalette"
+        data-tip="Select colours not in the palette"
+        onClick={() => selectNotInPalette()}
+      >
+        Sel ≠pal
+      </button>
+      <button
+        type="button"
+        data-testid="menu-select-layer"
+        data-tip="Select the layer's opaque pixels"
+        onClick={() => layerToSelection()}
+      >
+        Sel layer
+      </button>
+      <button
+        type="button"
+        data-testid="menu-to-layer"
+        data-tip="Copy the selection to a new layer"
+        onClick={() => bus.trigger(COMMAND.TOLAYER)}
+      >
+        →Layer
+      </button>
+      <button
+        type="button"
+        data-testid="menu-brush-capture"
+        data-tip="Capture the selection as a brush"
+        onClick={() => captureBrush()}
+      >
+        Grab brush
+      </button>
+      <button
+        type="button"
+        data-testid="menu-brush-rotate"
+        data-tip="Rotate the brush 90°"
+        disabled={!hasBrush}
+        onClick={() => bus.trigger(COMMAND.BRUSHROTATERIGHT)}
+      >
+        ↻brush
+      </button>
+      <button
+        type="button"
+        data-testid="menu-brush-flip"
+        data-tip="Flip the brush horizontally"
+        disabled={!hasBrush}
+        onClick={() => flipBrush(true)}
+      >
+        ⇆brush
+      </button>
+      <button
+        type="button"
+        data-testid="menu-brush-save"
+        data-tip="Save the brush as PNG"
+        disabled={!hasBrush}
+        onClick={() => void handleSaveBrush()}
+      >
+        Save brush
+      </button>
+      <button
+        type="button"
+        data-testid="menu-brush-load"
+        data-tip="Load a brush from a PNG"
+        onClick={() => brushInputRef.current?.click()}
+      >
+        Load brush
+      </button>
+      <button
+        type="button"
         data-testid="menu-rotate-left"
-        title="Rotate 90° counter-clockwise"
+        data-tip="Rotate 90° counter-clockwise"
         onClick={() => rotate(true)}
       >
         ⟲
@@ -364,7 +648,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-rotate-right"
-        title="Rotate 90° clockwise"
+        data-tip="Rotate 90° clockwise"
         onClick={() => rotate(false)}
       >
         ⟳
@@ -372,7 +656,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-rotate-free"
-        title="Rotate by an arbitrary angle"
+        data-tip="Rotate by an arbitrary angle"
         onClick={() => {
           const v = typeof window !== "undefined" ? window.prompt("Rotate by degrees:", "45") : null;
           const deg = v ? Number(v) : NaN;
@@ -381,13 +665,13 @@ export function MenuBar() {
       >
         ∠
       </button>
-      <button type="button" data-testid="menu-matte" title="Defringe transparent edges" onClick={matteImage}>
+      <button type="button" data-testid="menu-matte" data-tip="Defringe transparent edges" onClick={matteImage}>
         Matte
       </button>
       <button
         type="button"
         data-testid="menu-palette-from-image"
-        title="Build the palette from the image"
+        data-tip="Build the palette from the image"
         onClick={paletteFromImage}
       >
         Palette
@@ -397,7 +681,7 @@ export function MenuBar() {
         data-testid="menu-cycle"
         className={colorCycleActive ? "active" : ""}
         aria-pressed={colorCycleActive}
-        title="Toggle colour-cycling animation"
+        data-tip="Toggle colour-cycling animation"
         onClick={toggleColorCycle}
       >
         Cycle
@@ -405,7 +689,7 @@ export function MenuBar() {
       <button
         type="button"
         data-testid="menu-dither"
-        title="Dither the layer to the palette (Floyd–Steinberg)"
+        data-tip="Dither the layer to the palette (Floyd–Steinberg)"
         onClick={ditherImage}
       >
         Dither
@@ -415,7 +699,7 @@ export function MenuBar() {
         data-testid="menu-grid"
         className={showGrid ? "active" : ""}
         aria-pressed={showGrid}
-        title="Toggle pixel grid"
+        data-tip="Toggle pixel grid"
         onClick={toggleGrid}
       >
         Grid
@@ -425,7 +709,7 @@ export function MenuBar() {
         data-testid="menu-rulers"
         className={showRulers ? "active" : ""}
         aria-pressed={showRulers}
-        title="Toggle rulers"
+        data-tip="Toggle rulers"
         onClick={toggleRulers}
       >
         Rulers
@@ -435,10 +719,73 @@ export function MenuBar() {
         data-testid="menu-bitplanes"
         className={showBitplanes ? "active" : ""}
         aria-pressed={showBitplanes}
-        title="Toggle bit-planes view"
+        data-tip="Toggle bit-planes view"
         onClick={toggleBitplanes}
       >
         Planes
+      </button>
+      <button
+        type="button"
+        data-testid="menu-gallery"
+        className={galleryOpen ? "active" : ""}
+        aria-pressed={galleryOpen}
+        data-tip="Open the artwork gallery"
+        onClick={toggleGallery}
+      >
+        Gallery
+      </button>
+      <button
+        type="button"
+        data-testid="menu-presentation"
+        data-tip="Presentation mode"
+        onClick={togglePresentation}
+      >
+        Present
+      </button>
+      <button
+        type="button"
+        data-testid="menu-sidepanel"
+        data-tip="Toggle side panel"
+        onClick={toggleSidePanel}
+      >
+        Panel
+      </button>
+      <button
+        type="button"
+        data-testid="menu-splitscreen"
+        className={splitScreen ? "active" : ""}
+        aria-pressed={splitScreen}
+        data-tip="Split-screen view"
+        onClick={toggleSplitScreen}
+      >
+        Split
+      </button>
+      <button
+        type="button"
+        data-testid="menu-fullscreen"
+        data-tip="Toggle fullscreen"
+        onClick={toggleFullscreen}
+      >
+        Full
+      </button>
+      <button
+        type="button"
+        data-testid="menu-deluxe"
+        data-tip="Amiga Deluxe Paint preview"
+        onClick={toggleUae}
+      >
+        Amiga
+      </button>
+      <button type="button" data-testid="menu-about" data-tip="About" onClick={showAbout}>
+        About
+      </button>
+      <button
+        type="button"
+        data-testid="menu-preferences"
+        data-tip="Preferences"
+        onClick={showPreferences}
+      >
+        Prefs
       </button>
       <span className="spacer" />
       <button
@@ -450,7 +797,7 @@ export function MenuBar() {
         −
       </button>
       <span className="zoom-label" data-testid="zoom-label">
-        {zoom}×
+        {Math.round(zoom * 100)}%
       </span>
       <button
         type="button"
@@ -459,6 +806,9 @@ export function MenuBar() {
         onClick={() => bus.trigger(COMMAND.ZOOMIN)}
       >
         +
+      </button>
+      <button type="button" data-testid="menu-zoomfit" data-tip="Fit to window" onClick={zoomFit}>
+        Fit
       </button>
       <button type="button" data-testid="menu-zoomreset" onClick={() => setZoom(8)}>
         Reset

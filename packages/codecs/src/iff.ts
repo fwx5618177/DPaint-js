@@ -5,8 +5,9 @@
  * or ByteRun1-compressed BODY, EHB (Extra-Half-Bright) and HAM6/HAM8. Mask
  * plane (mask = 1) and transparent-colour (mask = 2) are honoured.
  *
- * Not yet handled (still in the legacy reader): SHAM per-scanline palettes,
- * 24-bit true-colour, interlace pixel-doubling and ANIM deltas.
+ * SHAM per-scanline palettes, 24-bit true-colour and interlace are handled.
+ * IFF ANIM (multi-frame) is decoded separately by {@link decodeANIM} (the
+ * common Byte-Vertical-Delta / DPaint mode-5 compression).
  */
 import { BinaryStream, type ColorArray } from "@dpaint/primitives";
 import { decodeLine, type ByteSource } from "./byteRun1.js";
@@ -200,6 +201,330 @@ export function decodeILBM(bytes: Uint8Array): DecodedILBM {
   }
 
   return { width, height, numPlanes, palette, mode, data };
+}
+
+export interface DecodedANIM {
+  width: number;
+  height: number;
+  palette: ColorArray[];
+  /** One RGBA buffer (width*height*4) per animation frame. */
+  frames: Uint8ClampedArray[];
+}
+
+/** Convert a deinterleaved plane-byte buffer to RGBA (indexed / EHB / HAM). */
+function ilbmFlatToRGBA(
+  flat: Uint8Array,
+  width: number,
+  height: number,
+  numPlanes: number,
+  planesPerRow: number,
+  rowBytes: number,
+  palette: ColorArray[],
+  opts: { ham: boolean; ehb: boolean; mask: number },
+): Uint8ClampedArray {
+  const { ham, ehb, mask } = opts;
+  const pal = palette.map((c) => c.slice() as ColorArray);
+  let colorPlanes = numPlanes;
+  if (ham) {
+    colorPlanes = numPlanes >= 7 ? 6 : 4;
+  } else if (ehb) {
+    for (let i = 0; i < 32 && i < pal.length; i++) {
+      const c = pal[i]!;
+      pal[i + 32] = [c[0]! >> 1, c[1]! >> 1, c[2]! >> 1];
+    }
+  }
+  const lowMask = (1 << colorPlanes) - 1;
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    const rowBase = y * planesPerRow * rowBytes;
+    let prev: ColorArray = [0, 0, 0];
+    for (let x = 0; x < width; x++) {
+      const byteIndex = x >> 3;
+      const bit = 0x80 >> (x & 7);
+      let pixel = 0;
+      for (let p = 0; p < numPlanes; p++) {
+        if (flat[rowBase + p * rowBytes + byteIndex]! & bit) pixel |= 1 << p;
+      }
+      let color: ColorArray;
+      let alpha = 255;
+      if (ham) {
+        const index = pixel & lowMask;
+        const modifier = pixel >> colorPlanes;
+        if (modifier === 0) {
+          color = (pal[index] ?? [0, 0, 0]).slice() as ColorArray;
+        } else {
+          const value = (index << (8 - colorPlanes)) & 0xff;
+          color = prev.slice() as ColorArray;
+          if (modifier === 1) color[2] = value;
+          else if (modifier === 2) color[0] = value;
+          else if (modifier === 3) color[1] = value;
+        }
+        prev = color;
+      } else {
+        color = pal[pixel] ?? [0, 0, 0];
+        if (mask === 1) {
+          const maskByte = flat[rowBase + numPlanes * rowBytes + byteIndex]!;
+          alpha = maskByte & bit ? 255 : 0;
+        }
+      }
+      const o = (y * width + x) * 4;
+      data[o] = color[0]!;
+      data[o + 1] = color[1]!;
+      data[o + 2] = color[2]!;
+      data[o + 3] = alpha;
+    }
+  }
+  return data;
+}
+
+/**
+ * Apply an IFF ANIM Byte-Vertical-Delta (compression 5, the Deluxe Paint
+ * default) DLTA chunk in place onto a copy of the previous frame's plane bytes.
+ */
+function applyByteVerticalDelta(
+  file: BinaryStream,
+  dltaStart: number,
+  flat: Uint8Array,
+  height: number,
+  numPlanes: number,
+  planesPerRow: number,
+  rowBytes: number,
+): void {
+  const pointers: number[] = [];
+  file.goto(dltaStart);
+  for (let i = 0; i < 8; i++) pointers.push(file.readUint());
+  const colCount = rowBytes; // one byte column = 8 pixels
+  const bitPlaneCount = Math.min(numPlanes, 8);
+  for (let p = 0; p < bitPlaneCount; p++) {
+    const ptr = pointers[p]!;
+    if (!ptr) continue;
+    file.goto(dltaStart + ptr);
+    for (let col = 0; col < colCount; col++) {
+      const opCount = file.readUbyte();
+      let y = 0;
+      for (let op = 0; op < opCount; op++) {
+        const code = file.readUbyte();
+        if (code === 0) {
+          // same op: run of one repeated byte
+          const cnt = file.readUbyte();
+          const b = file.readUbyte();
+          for (let i = 0; i < cnt; i++) {
+            if (y < height) flat[y * planesPerRow * rowBytes + p * rowBytes + col] = b;
+            y++;
+          }
+        } else if (code < 128) {
+          y += code; // skip op
+        } else {
+          // uniq op: literal bytes
+          const cnt = code - 128;
+          for (let i = 0; i < cnt; i++) {
+            const b = file.readUbyte();
+            if (y < height) flat[y * planesPerRow * rowBytes + p * rowBytes + col] = b;
+            y++;
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Decode an IFF ANIM (multi-frame ILBM animation). The first embedded FORM ILBM
+ * is a full frame; subsequent frames are DLTA deltas against the previous frame.
+ * Only Byte-Vertical-Delta (compression 5) is decoded — like the original app,
+ * other delta modes leave the frame as a copy of its predecessor.
+ */
+export function decodeANIM(bytes: Uint8Array): DecodedANIM {
+  const file = new BinaryStream(new Uint8Array(bytes).buffer, true);
+  if (file.readString(4, 0) !== "FORM") throw new Error("Not an IFF FORM");
+  file.readUint(); // form size
+  if (file.readString(4) !== "ANIM") throw new Error("Not an IFF ANIM");
+
+  let width = 0;
+  let height = 0;
+  let numPlanes = 0;
+  let mask = 0;
+  let ehb = false;
+  let ham = false;
+  let palette: ColorArray[] = [];
+  let planesPerRow = 0;
+  let rowBytes = 0;
+  let prevFlat: Uint8Array | null = null;
+  const frames: Uint8ClampedArray[] = [];
+
+  while (!file.isEOF()) {
+    const name = file.readString(4);
+    if (name.length < 4) break;
+    const size = file.readUint();
+    const next = file.index + size + (size & 1);
+
+    if (name === "FORM") {
+      file.readString(4); // nested form type (ILBM)
+      let compression = 0;
+      let animComp = -1;
+      let bodyStart = -1;
+      let bodySize = 0;
+      let dltaStart = -1;
+      while (file.index < next) {
+        const cn = file.readString(4);
+        if (cn.length < 4) break;
+        const cs = file.readUint();
+        const cnext = file.index + cs + (cs & 1);
+        if (cn === "BMHD") {
+          width = file.readWord();
+          height = file.readWord();
+          file.readShort();
+          file.readShort();
+          numPlanes = file.readUbyte();
+          mask = file.readUbyte();
+          compression = file.readUbyte();
+        } else if (cn === "CMAP") {
+          palette = [];
+          const colors = Math.floor(cs / 3);
+          for (let i = 0; i < colors; i++) {
+            palette.push([file.readUbyte(), file.readUbyte(), file.readUbyte()]);
+          }
+        } else if (cn === "CAMG") {
+          const v = file.readUint();
+          ehb = (v & 0x80) !== 0;
+          ham = (v & 0x800) !== 0;
+        } else if (cn === "ANHD") {
+          animComp = file.readUbyte();
+        } else if (cn === "BODY") {
+          bodyStart = file.index;
+          bodySize = cs;
+        } else if (cn === "DLTA") {
+          dltaStart = file.index;
+        }
+        file.goto(cnext);
+      }
+
+      planesPerRow = numPlanes + (mask === 1 ? 1 : 0);
+      rowBytes = ((width + 15) >> 4) << 1;
+      const flatLen = rowBytes * planesPerRow * height;
+
+      let flat: Uint8Array | null = null;
+      if (bodyStart >= 0) {
+        if (compression === 1) {
+          const source: ByteSource = {
+            dataView: file.dataView,
+            index: bodyStart,
+            goto(v: number) {
+              this.index = v;
+            },
+          };
+          flat = decodeLine(source, bodyStart, flatLen, bodyStart + bodySize).line;
+        } else {
+          flat = new Uint8Array(flatLen);
+          for (let i = 0; i < flatLen && bodyStart + i < file.length; i++) {
+            flat[i] = file.dataView.getUint8(bodyStart + i);
+          }
+        }
+      } else if (dltaStart >= 0 && prevFlat) {
+        flat = new Uint8Array(prevFlat); // start from the reference frame
+        if (animComp === 5) {
+          applyByteVerticalDelta(file, dltaStart, flat, height, numPlanes, planesPerRow, rowBytes);
+        }
+      }
+
+      if (flat) {
+        prevFlat = flat;
+        frames.push(
+          ilbmFlatToRGBA(flat, width, height, numPlanes, planesPerRow, rowBytes, palette, {
+            ham,
+            ehb,
+            mask,
+          }),
+        );
+      }
+    }
+    file.goto(next);
+  }
+
+  if (frames.length === 0) throw new Error("IFF ANIM contains no frames");
+  return { width, height, palette, frames };
+}
+
+/**
+ * Decode an IFF "PBM " image — the **chunky** (one byte per pixel) variant used
+ * by the PC version of Deluxe Paint, optionally ByteRun1 (PackBits) compressed.
+ */
+export function decodePBM(bytes: Uint8Array): DecodedILBM {
+  const file = new BinaryStream(new Uint8Array(bytes).buffer, true);
+  if (file.readString(4, 0) !== "FORM") throw new Error("Not an IFF FORM");
+  file.readUint();
+  if (file.readString(4) !== "PBM ") throw new Error("Not an IFF PBM");
+
+  let width = 0;
+  let height = 0;
+  let compression = 0;
+  let palette: ColorArray[] = [];
+  let bodyStart = -1;
+  let bodySize = 0;
+
+  while (!file.isEOF()) {
+    const name = file.readString(4);
+    if (name.length < 4) break;
+    const size = file.readUint();
+    const next = file.index + size + (size & 1);
+    if (name === "BMHD") {
+      width = file.readWord();
+      height = file.readWord();
+      file.readShort();
+      file.readShort();
+      file.readUbyte(); // numPlanes (8 for chunky)
+      file.readUbyte(); // mask
+      compression = file.readUbyte();
+    } else if (name === "CMAP") {
+      palette = [];
+      const colors = Math.floor(size / 3);
+      for (let i = 0; i < colors; i++) {
+        palette.push([file.readUbyte(), file.readUbyte(), file.readUbyte()]);
+      }
+    } else if (name === "BODY") {
+      bodyStart = file.index;
+      bodySize = size;
+    }
+    file.goto(next);
+    if (name === "BODY") break;
+  }
+
+  if (width === 0 || height === 0) throw new Error("PBM missing BMHD");
+  if (bodyStart < 0) throw new Error("PBM missing BODY");
+
+  const rowLen = width + (width & 1); // rows are padded to an even byte length
+  const expected = rowLen * height;
+  let chunky: Uint8Array;
+  if (compression === 1) {
+    const source: ByteSource = {
+      dataView: file.dataView,
+      index: bodyStart,
+      goto(v: number) {
+        this.index = v;
+      },
+    };
+    chunky = decodeLine(source, bodyStart, expected, bodyStart + bodySize).line;
+  } else {
+    chunky = new Uint8Array(expected);
+    for (let i = 0; i < expected && bodyStart + i < file.length; i++) {
+      chunky[i] = file.dataView.getUint8(bodyStart + i);
+    }
+  }
+
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = chunky[y * rowLen + x]!;
+      const c = palette[idx] ?? [0, 0, 0];
+      const o = (y * width + x) * 4;
+      data[o] = c[0]!;
+      data[o + 1] = c[1]!;
+      data[o + 2] = c[2]!;
+      data[o + 3] = 255;
+    }
+  }
+
+  return { width, height, numPlanes: 8, palette, mode: "indexed", data };
 }
 
 export interface ILBMEncodeInput {
@@ -603,5 +928,5 @@ export function encodeSHAM(input: SHAMEncodeInput): Uint8Array {
   return new Uint8Array(f.buffer);
 }
 
-const IFF = { decodeILBM, encodeILBM, encodeTrueColorILBM, encodeHAM, encodeHAM6, encodeHAM8, encodeSHAM };
+const IFF = { decodeILBM, decodeANIM, decodePBM, encodeILBM, encodeTrueColorILBM, encodeHAM, encodeHAM6, encodeHAM8, encodeSHAM };
 export default IFF;

@@ -16,6 +16,14 @@ export {
   posterize,
   threshold,
   boxBlur,
+  adjustSaturation,
+  hueRotate,
+  sepia,
+  invert,
+  colorBalance,
+  unsharpMask,
+  feather,
+  outline,
 } from "./effects.js";
 export { cyclePalette, type ColorRange } from "./colorcycle.js";
 export {

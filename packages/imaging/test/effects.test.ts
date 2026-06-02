@@ -5,6 +5,13 @@ import {
   posterize,
   threshold,
   boxBlur,
+  adjustSaturation,
+  hueRotate,
+  sepia,
+  invert,
+  colorBalance,
+  unsharpMask,
+  outline,
 } from "../src/effects.js";
 
 function px(...colors: number[][]): Uint8ClampedArray {
@@ -80,5 +87,63 @@ describe("boxBlur", () => {
     const src = px([90, 90, 90], [90, 90, 90], [90, 90, 90], [90, 90, 90]);
     const out = boxBlur(src, 2, 2, 1);
     expect(out.every((v, i) => (i % 4 === 3 ? true : v === 90))).toBe(true);
+  });
+});
+
+describe("adjustment effects", () => {
+  it("desaturates to grey at amount 0", () => {
+    const px = new Uint8ClampedArray([200, 100, 50, 255]);
+    const out = adjustSaturation(px, 0);
+    // all channels equal the luma
+    expect(out[0]).toBe(out[1]);
+    expect(out[1]).toBe(out[2]);
+    expect(out[3]).toBe(255);
+  });
+
+  it("hueRotate 0° is (near) identity", () => {
+    const px = new Uint8ClampedArray([120, 60, 200, 255]);
+    const out = hueRotate(px, 0);
+    expect(Math.abs(out[0]! - 120)).toBeLessThanOrEqual(2);
+    expect(Math.abs(out[2]! - 200)).toBeLessThanOrEqual(2);
+  });
+
+  it("sepia warms a grey pixel", () => {
+    const px = new Uint8ClampedArray([128, 128, 128, 255]);
+    const out = sepia(px, 1);
+    expect(out[0]!).toBeGreaterThan(out[2]!); // red channel > blue
+  });
+
+  it("invert flips channels fully at amount 1", () => {
+    const px = new Uint8ClampedArray([0, 255, 10, 255]);
+    const out = invert(px, 1);
+    expect([out[0], out[1], out[2]]).toEqual([255, 0, 245]);
+  });
+
+  it("colorBalance shifts a single channel", () => {
+    const px = new Uint8ClampedArray([100, 100, 100, 255]);
+    const out = colorBalance(px, 50, 0, -20);
+    expect(out[0]).toBe(150);
+    expect(out[2]).toBe(80);
+  });
+
+  it("unsharpMask preserves dimensions and alpha", () => {
+    const w = 3, h = 3;
+    const px = new Uint8ClampedArray(w * h * 4).fill(128);
+    for (let i = 3; i < px.length; i += 4) px[i] = 255;
+    const out = unsharpMask(px, w, h, 1, 1);
+    expect(out.length).toBe(px.length);
+    expect(out[3]).toBe(255);
+  });
+
+  it("outline paints a halo around opaque content", () => {
+    const w = 3, h = 3;
+    const px = new Uint8ClampedArray(w * h * 4);
+    // single opaque centre pixel
+    const c = (1 * w + 1) * 4;
+    px[c] = 200; px[c + 3] = 255;
+    const out = outline(px, w, h, [255, 0, 0]);
+    // a neighbouring transparent pixel is now red+opaque
+    const up = (0 * w + 1) * 4;
+    expect([out[up], out[up + 1], out[up + 2], out[up + 3]]).toEqual([255, 0, 0, 255]);
   });
 });

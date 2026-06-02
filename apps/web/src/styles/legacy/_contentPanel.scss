@@ -1,0 +1,47 @@
+/* override the default sidebar panel style */
+.contentpanel{
+    position: absolute;
+    left: 250px;
+    width: 300px;
+    z-index: 300;
+
+    section{
+        padding: 10px;
+        margin-top: 4px;
+        font-size: 12px;
+
+        h4{
+            font-size: 12px;
+            padding: 0 2px;
+            font-weight: normal;
+            color: $dimmed-text-color;
+            margin: 16px 0 5px 0;
+            position: relative;
+            border-bottom: 1px solid #656565;
+        }
+
+        .checkbox{
+            margin: 8px 0 4px 0;
+            label span{
+                display: block;
+                white-space: normal;
+
+                &:before{
+                    top: 0;
+                }
+            }
+        }
+
+        .hint{
+            color: $dimmed-text-color;
+            line-height: 1.4;
+            margin-top: 6px;
+        }
+
+        .warning{
+            color: #d08181;
+            padding: 0 0 0 20px;
+            margin-top: 6px;
+        }
+    }
+}

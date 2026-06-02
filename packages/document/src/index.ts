@@ -25,3 +25,4 @@ export {
   type ToolId,
   type ToolDef,
 } from "./tools.js";
+export { rotateRegion, flipRegion } from "./brush.js";

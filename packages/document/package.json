@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@dpaint/imaging": "workspace:*",
-    "@dpaint/primitives": "workspace:*"
+    "@dpaint/primitives": "workspace:*",
+    "http-server": "^14.1.1"
   }
 }

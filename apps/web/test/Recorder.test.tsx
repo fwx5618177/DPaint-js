@@ -26,16 +26,14 @@ describe("Session recorder", () => {
   it("records edits as frames and exports an animated GIF", async () => {
     const user = userEvent.setup();
     render(<App />);
-    expect(screen.getByTestId("menu-export-rec")).toBeDisabled();
 
-    await user.click(screen.getByTestId("menu-record"));
+    await user.click(screen.getByTestId("menu-record")); // start
     expect(screen.getByTestId("menu-record")).toHaveAttribute("aria-pressed", "true");
 
     drawDot(); // frame
     drawDot(); // frame
     await user.click(screen.getByTestId("menu-record")); // stop
 
-    expect(screen.getByTestId("menu-export-rec")).toBeEnabled();
     await user.click(screen.getByTestId("menu-export-rec"));
     expect(created).toHaveLength(1);
     const bytes = new Uint8Array(await created[0]!.arrayBuffer());

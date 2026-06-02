@@ -568,3 +568,338 @@ describe("ImageDocument composite & colorCount", () => {
     expect(newDoc().colorCount()).toBe(0);
   });
 });
+
+describe("ImageDocument layer operations", () => {
+  it("duplicates a layer above and makes the copy active", () => {
+    const doc = newDoc(4, 4);
+    doc.setPixel(1, 1, [9, 8, 7]);
+    const copy = doc.duplicateLayer(0);
+    expect(doc.layers).toHaveLength(2);
+    expect(doc.activeLayerIndex).toBe(1);
+    expect(copy.name).toBe("Layer 1 copy");
+    // independent buffer
+    expect(copy.data).not.toBe(doc.layers[0]!.data);
+    expect(doc.getPixel(1, 1, copy)).toEqual([9, 8, 7, 255]);
+  });
+
+  it("moves a layer up and down, tracking the active index", () => {
+    const doc = newDoc(2, 2);
+    doc.addLayer("B"); // index 1, active
+    doc.addLayer("C"); // index 2, active
+    expect(doc.layers.map((l) => l.name)).toEqual(["Layer 1", "B", "C"]);
+    doc.activeLayerIndex = 2;
+    doc.moveLayer(2, "down");
+    expect(doc.layers.map((l) => l.name)).toEqual(["Layer 1", "C", "B"]);
+    expect(doc.activeLayerIndex).toBe(1);
+    doc.moveLayer(1, "up");
+    expect(doc.layers.map((l) => l.name)).toEqual(["Layer 1", "B", "C"]);
+  });
+
+  it("merges a layer down, compositing opaque over lower", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [10, 10, 10]); // lower layer
+    doc.addLayer("top");
+    doc.setPixel(0, 0, [200, 100, 50]); // upper, fully opaque
+    doc.mergeDown(1);
+    expect(doc.layers).toHaveLength(1);
+    expect(doc.activeLayerIndex).toBe(0);
+    // opaque upper wins
+    expect(doc.getPixel(0, 0)).toEqual([200, 100, 50, 255]);
+  });
+
+  it("flattens all layers into one", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [1, 2, 3]);
+    doc.addLayer("b");
+    doc.setPixel(1, 1, [4, 5, 6]);
+    doc.flatten();
+    expect(doc.layers).toHaveLength(1);
+    expect(doc.getPixel(0, 0)).toEqual([1, 2, 3, 255]);
+    expect(doc.getPixel(1, 1)).toEqual([4, 5, 6, 255]);
+  });
+
+  it("does not move beyond bounds or remove the last layer", () => {
+    const doc = newDoc(2, 2);
+    doc.moveLayer(0, "up"); // only one layer — no-op
+    expect(doc.layers).toHaveLength(1);
+    doc.removeLayer(0);
+    expect(doc.layers).toHaveLength(1);
+    doc.mergeDown(0); // index 0 has nothing below — no-op
+    expect(doc.layers).toHaveLength(1);
+  });
+});
+
+describe("ImageDocument crop / trim", () => {
+  it("computes trimBounds of the non-transparent content", () => {
+    const doc = newDoc(8, 8);
+    doc.setPixel(2, 3, [255, 0, 0]);
+    doc.setPixel(5, 6, [0, 255, 0]);
+    expect(doc.trimBounds()).toEqual({ x: 2, y: 3, width: 4, height: 4 });
+  });
+
+  it("trimBounds is null for an empty image", () => {
+    expect(newDoc(4, 4).trimBounds()).toBeNull();
+  });
+
+  it("cropped() returns a new document of the rectangle", () => {
+    const doc = newDoc(8, 8);
+    doc.setPixel(2, 2, [1, 2, 3]);
+    const c = doc.cropped(2, 2, 3, 3);
+    expect(c.width).toBe(3);
+    expect(c.height).toBe(3);
+    expect(c.getPixel(0, 0)).toEqual([1, 2, 3, 255]);
+    // original is untouched
+    expect(doc.width).toBe(8);
+  });
+});
+
+describe("ImageDocument selection modes", () => {
+  it("selects by colour into a mask + bounding rect", () => {
+    const doc = newDoc(4, 4);
+    doc.setPixel(1, 1, [200, 0, 0]);
+    doc.setPixel(2, 2, [200, 0, 0]);
+    doc.selectByColor([200, 0, 0]);
+    expect(doc.selection).toEqual({ x: 1, y: 1, width: 2, height: 2 });
+    expect(doc.selectionMask).not.toBeNull();
+    expect(doc.selectionMask![1 * 4 + 1]).toBe(255);
+    expect(doc.selectionMask![0]).toBe(0);
+  });
+
+  it("selects transparent pixels via alpha", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [1, 2, 3]); // opaque
+    doc.selectAlpha();
+    // three transparent pixels selected
+    const set = [...doc.selectionMask!].filter((v) => v === 255).length;
+    expect(set).toBe(3);
+  });
+
+  it("layer → selection picks the opaque pixels", () => {
+    const doc = newDoc(3, 3);
+    doc.setPixel(2, 2, [9, 9, 9]);
+    doc.layerToSelection();
+    expect(doc.selection).toEqual({ x: 2, y: 2, width: 1, height: 1 });
+  });
+
+  it("magic-wand selects a contiguous region", () => {
+    const doc = newDoc(4, 4);
+    // fill a 2x2 block of one colour
+    doc.setPixel(0, 0, [5, 5, 5]);
+    doc.setPixel(1, 0, [5, 5, 5]);
+    doc.setPixel(0, 1, [5, 5, 5]);
+    doc.setPixel(1, 1, [5, 5, 5]);
+    doc.magicWandSelect(0, 0);
+    const set = [...doc.selectionMask!].filter((v) => v === 255).length;
+    expect(set).toBe(4);
+  });
+
+  it("inverts the selection", () => {
+    const doc = newDoc(2, 2);
+    doc.selection = { x: 0, y: 0, width: 1, height: 1 };
+    doc.invertSelection();
+    // 4 px total, 1 was selected -> 3 now
+    const set = [...doc.selectionMask!].filter((v) => v === 255).length;
+    expect(set).toBe(3);
+  });
+
+  it("selectNotInPalette flags off-palette colours", () => {
+    const doc = newDoc(2, 2);
+    // palette default does not contain (123,45,67)
+    doc.setPixel(0, 0, [123, 45, 67]);
+    doc.selectNotInPalette();
+    expect(doc.selectionMask![0]).toBe(255);
+  });
+
+  it("copyRegion honours a non-rectangular mask", () => {
+    const doc = newDoc(3, 1);
+    doc.setPixel(0, 0, [10, 10, 10]);
+    doc.setPixel(2, 0, [20, 20, 20]);
+    // mask selects only the two end pixels (bounding rect spans all 3)
+    const mask = new Uint8Array(3);
+    mask[0] = 255;
+    mask[2] = 255;
+    doc.setSelectionMask(mask);
+    const region = doc.copyRegion(doc.selection!);
+    expect(region.width).toBe(3);
+    // middle pixel excluded -> transparent
+    expect(region.data[1 * 4 + 3]).toBe(0);
+    expect(region.data[0 * 4 + 3]).toBe(255);
+    expect(region.data[2 * 4 + 3]).toBe(255);
+  });
+});
+
+describe("ImageDocument frame operations", () => {
+  it("clears a frame's pixels", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [1, 2, 3]);
+    doc.clearFrame();
+    expect(doc.getPixel(0, 0)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("moves a frame to the end", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [9, 9, 9]); // frame 0 marker
+    doc.addFrame(); // frame 1 (blank), active
+    doc.goToFrame(0);
+    doc.moveFrameToEnd();
+    expect(doc.activeFrameIndex).toBe(1);
+    // the marked frame is now last
+    expect(doc.getPixel(0, 0)).toEqual([9, 9, 9, 255]);
+  });
+
+  it("converts frames to layers and back", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [10, 0, 0]);
+    doc.addFrame();
+    doc.setPixel(1, 1, [0, 10, 0]);
+    expect(doc.frameCount).toBe(2);
+    doc.framesToLayers();
+    expect(doc.frameCount).toBe(1);
+    expect(doc.layers).toHaveLength(2);
+    doc.layersToFrames();
+    expect(doc.frameCount).toBe(2);
+    expect(doc.layers).toHaveLength(1);
+  });
+
+  it("builds a horizontal sprite sheet from frames", () => {
+    const doc = newDoc(4, 3);
+    doc.addFrame();
+    doc.addFrame(); // 3 frames
+    const sheet = doc.toSpriteSheet();
+    expect(sheet.width).toBe(12); // 4 * 3
+    expect(sheet.height).toBe(3);
+    expect(sheet.frameCount).toBe(1);
+  });
+});
+
+describe("ImageDocument layer masks", () => {
+  it("a hide-all mask makes the layer composite transparent", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [255, 0, 0]);
+    expect(doc.composite()[3]).toBe(255);
+    doc.addLayerMask(false); // hide all
+    expect(doc.composite()[3]).toBe(0);
+  });
+
+  it("disabling the mask restores the layer", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [255, 0, 0]);
+    doc.addLayerMask(false);
+    expect(doc.composite()[3]).toBe(0);
+    doc.setLayerMaskEnabled(false);
+    expect(doc.composite()[3]).toBe(255);
+  });
+
+  it("applies the mask into the alpha then drops it", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [255, 0, 0]);
+    doc.addLayerMask(true);
+    doc.setMaskPixel(0, 0, 0); // hide the pixel via the mask
+    doc.applyLayerMask();
+    expect(doc.layers[0]!.mask).toBeNull();
+    expect(doc.getPixel(0, 0)![3]).toBe(0); // baked into alpha
+  });
+
+  it("delete removes the mask", () => {
+    const doc = newDoc(2, 2);
+    doc.addLayerMask(true);
+    expect(doc.layers[0]!.mask).not.toBeNull();
+    doc.deleteLayerMask();
+    expect(doc.layers[0]!.mask).toBeNull();
+  });
+
+  it("mask survives an undo snapshot round-trip", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [9, 9, 9]);
+    doc.addLayerMask(false);
+    const snap = doc.snapshot();
+    doc.deleteLayerMask();
+    doc.restore(snap);
+    expect(doc.layers[0]!.mask).not.toBeNull();
+    expect(doc.composite()[3]).toBe(0);
+  });
+});
+
+describe("ImageDocument polygon selection", () => {
+  it("selects pixels inside a triangle", () => {
+    const doc = newDoc(8, 8);
+    doc.selectPolygon([
+      [1, 1],
+      [6, 1],
+      [1, 6],
+    ]);
+    expect(doc.selectionMask).not.toBeNull();
+    // a point well inside the triangle is selected
+    expect(doc.selectionMask![2 * 8 + 2]).toBe(255);
+    // a point outside (bottom-right) is not
+    expect(doc.selectionMask![7 * 8 + 7]).toBe(0);
+  });
+
+  it("ignores degenerate polygons (<3 points)", () => {
+    const doc = newDoc(4, 4);
+    doc.selectPolygon([[0, 0], [1, 1]]);
+    expect(doc.selectionMask).toBeNull();
+  });
+});
+
+describe("ImageDocument colour-mask stencil", () => {
+  it("protects pixels of the stencil colour from drawing", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [10, 20, 30]);
+    doc.stencilColor = [10, 20, 30];
+    // drawing over the protected pixel is ignored
+    doc.setPixel(0, 0, [255, 255, 255]);
+    expect(doc.getPixel(0, 0)).toEqual([10, 20, 30, 255]);
+    // other pixels draw normally
+    doc.setPixel(1, 1, [99, 99, 99]);
+    expect(doc.getPixel(1, 1)).toEqual([99, 99, 99, 255]);
+  });
+});
+
+describe("ImageDocument copyToLayer + topLayerAt", () => {
+  it("copies the selection into a new floating layer", () => {
+    const doc = newDoc(4, 4);
+    doc.setPixel(1, 1, [7, 7, 7]);
+    doc.selection = { x: 0, y: 0, width: 2, height: 2 };
+    const before = doc.layers.length;
+    doc.copyToLayer();
+    expect(doc.layers.length).toBe(before + 1);
+    // the new layer holds the copied pixel
+    expect(doc.getPixel(1, 1, doc.activeLayer)).toEqual([7, 7, 7, 255]);
+  });
+
+  it("topLayerAt finds the upper opaque layer", () => {
+    const doc = newDoc(2, 2);
+    doc.setPixel(0, 0, [1, 1, 1]); // layer 0
+    doc.addLayer("top");
+    doc.setPixel(0, 0, [2, 2, 2]); // layer 1
+    expect(doc.topLayerAt(0, 0)).toBe(1);
+    expect(doc.topLayerAt(1, 1)).toBe(-1); // nothing there
+  });
+});
+
+describe("ImageDocument parametric brush", () => {
+  it("paintDab paints a soft filled circle", () => {
+    const doc = newDoc(16, 16);
+    doc.paintDab(8, 8, [255, 0, 0], 6, 0, 1);
+    // centre painted opaque
+    expect(doc.getPixel(8, 8)![3]).toBe(255);
+    expect([doc.getPixel(8, 8)![0], doc.getPixel(8, 8)![1]]).toEqual([255, 0]);
+    // far corner untouched
+    expect(doc.getPixel(0, 0)![3]).toBe(0);
+  });
+
+  it("paintBrushStroke lays dabs along the segment", () => {
+    const doc = newDoc(32, 8);
+    doc.paintBrushStroke(2, 4, 28, 4, [0, 0, 255], {
+      size: 4,
+      softness: 0,
+      opacity: 100,
+      flow: 100,
+      jitter: 0,
+    });
+    expect(doc.getPixel(2, 4)![3]).toBeGreaterThan(0);
+    expect(doc.getPixel(28, 4)![3]).toBeGreaterThan(0);
+    expect(doc.getPixel(15, 4)![3]).toBeGreaterThan(0); // middle covered
+  });
+})

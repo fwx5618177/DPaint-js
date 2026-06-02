@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AdfDisk, decodeADF } from "../src/adf.js";
+import { AdfDisk, decodeADF, encodeADF } from "../src/adf.js";
 
 const SECTOR = 512;
 
@@ -67,5 +67,24 @@ describe("ADF reader (OFS)", () => {
 
   it("rejects non-ADF input", () => {
     expect(() => decodeADF(new Uint8Array(1024))).toThrow(/DOS/);
+  });
+});
+
+describe("ADF writer", () => {
+  it("round-trips files through encodeADF/AdfDisk", () => {
+    const big = new Uint8Array(1200).map((_, i) => i % 256); // spans multiple OFS blocks
+    const disk = encodeADF([
+      { name: "HELLO.txt", bytes: new Uint8Array([72, 105]) },
+      { name: "BIG.bin", bytes: big },
+    ]);
+    const adf = decodeADF(disk);
+    expect(adf.label).toBe("DPAINT");
+    const names = adf.entries.map((e) => e.name).sort();
+    expect(names).toEqual(["BIG.bin", "HELLO.txt"]);
+    const reader = new AdfDisk(disk);
+    const hello = reader.list().find((e) => e.name === "HELLO.txt")!;
+    expect(String.fromCharCode(...reader.readFile(hello.sector))).toBe("Hi");
+    const bigEntry = reader.list().find((e) => e.name === "BIG.bin")!;
+    expect(reader.readFile(bigEntry.sector)).toEqual(big);
   });
 });
